@@ -12,6 +12,7 @@ import {
   Settings,
   LogOut,
   Contact,
+  Truck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { signOut } from "@/lib/auth-client";
@@ -23,7 +24,7 @@ const navItems = [
     title: "Tableau de bord",
     href: "/",
     icon: LayoutDashboard,
-    roles: ["ADMIN", "ACCOUNTANT", "AGENT"],
+    roles: ["ADMIN", "ACCOUNTANT", "AGENT", "DELIVERY_ASSISTANT"],
   },
   {
     title: "CRM / Prospects",
@@ -41,13 +42,19 @@ const navItems = [
     title: "Produits & Stock",
     href: "/products",
     icon: Package,
-    roles: ["ADMIN", "ACCOUNTANT", "AGENT"],
+    roles: ["ADMIN", "ACCOUNTANT", "AGENT", "DELIVERY_ASSISTANT"],
   },
   {
     title: "Ventes",
     href: "/sales",
     icon: ShoppingCart,
-    roles: ["ADMIN", "ACCOUNTANT", "AGENT"],
+    roles: ["ADMIN", "ACCOUNTANT", "AGENT", "DELIVERY_ASSISTANT"],
+  },
+  {
+    title: "Livraisons",
+    href: "/deliveries",
+    icon: Truck,
+    roles: ["ADMIN", "ACCOUNTANT", "DELIVERY_ASSISTANT"],
   },
   {
     title: "Commissions",

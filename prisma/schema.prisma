@@ -127,22 +127,28 @@ model StockMovement {
 }
 
 model Sale {
-  id           String   @id @default(cuid())
-  productId    String
-  product      Product  @relation(fields: [productId], references: [id])
-  quantity     Int
-  price        Float
-  customerName String
-  agentId      String
-  agent        User     @relation(fields: [agentId], references: [id])
-  status       String   @default("PENDING") // PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED
-  date         DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(cuid())
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id])
+  quantity        Int
+  price           Float
+  customerName    String
+  agentId         String
+  agent           User     @relation(fields: [agentId], references: [id])
+  status          String   @default("PENDING") // PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED
+  date            DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  prospectId   String?
-  prospect     Prospect? @relation(fields: [prospectId], references: [id])
+  prospectId      String?
+  prospect        Prospect? @relation(fields: [prospectId], references: [id])
 
-  commission Commission?
+  commission      Commission?
+
+  // Delivery fields
+  shippingType    String    @default("PICKUP") // PICKUP, DELIVERY
+  shippingCity    String?                      // MORONI, GRANDE_COMORE, ANJOUAN, MOHELI
+  shippingAddress String?
+  shippingFee     Float     @default(0)
 }
 
 model Commission {

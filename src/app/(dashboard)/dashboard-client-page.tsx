@@ -60,6 +60,10 @@ interface DashboardClientPageProps {
     agentId: string;
     agent: { id: string; name: string; email: string };
     status: string;
+    shippingType?: string;
+    shippingCity?: string | null;
+    shippingAddress?: string | null;
+    shippingFee?: number;
   }>;
   prospects: Array<{
     id: string;
@@ -143,7 +147,9 @@ export function DashboardClientPage({
   const filteredCommissions = filterByTimeframe(commissions, timeframe);
 
   // Dynamic statistics calculations
-  const totalRevenue = filteredSales.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const totalRevenue = filteredSales.reduce((sum, item) => sum + item.price * item.quantity + (item.shippingFee || 0), 0);
+  const productRevenue = filteredSales.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const totalShippingFees = filteredSales.reduce((sum, item) => sum + (item.shippingFee || 0), 0);
   const salesCount = filteredSales.length;
   const prospectsCount = filteredProspects.length;
   
@@ -159,7 +165,7 @@ export function DashboardClientPage({
     date: sale.date,
     customerName: sale.customerName,
     productName: sale.product.name,
-    amount: sale.price * sale.quantity,
+    amount: sale.price * sale.quantity + (sale.shippingFee || 0),
     agentName: sale.agent.name,
     status: sale.status,
   }));
@@ -212,9 +218,16 @@ export function DashboardClientPage({
             <div className="text-3xl font-extrabold text-slate-900 dark:text-white font-heading mt-1">
               {formatCurrency(totalRevenue)}
             </div>
-            <p className="text-xs text-indigo-600/70 dark:text-indigo-400/70 font-medium mt-1">
-              {isAgent ? "Vos ventes de la période" : "Chiffre d'affaires global de la période"}
-            </p>
+            <div className="flex flex-col gap-0.5 mt-1">
+              <p className="text-xs text-indigo-600/70 dark:text-indigo-400/70 font-medium">
+                {isAgent ? "Vos ventes de la période" : "Chiffre d'affaires global de la période"}
+              </p>
+              {totalShippingFees > 0 && (
+                <p className="text-[10px] text-slate-400 font-normal">
+                  ({formatCurrency(productRevenue)} prod + {formatCurrency(totalShippingFees)} livr.)
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
         

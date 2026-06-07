@@ -56,12 +56,16 @@ export async function getSalesAction() {
       productSku: sale.product.sku,
       quantity: sale.quantity,
       price: sale.price,
-      totalAmount: sale.price * sale.quantity,
+      totalAmount: sale.price * sale.quantity + (sale.shippingFee || 0),
       agentId: sale.agentId,
       agentName: sale.agent.name,
       status: sale.status,
       commissionAmount: sale.commission?.amount || 0,
       commissionStatus: sale.commission?.status || "PENDING",
+      shippingType: sale.shippingType,
+      shippingCity: sale.shippingCity,
+      shippingAddress: sale.shippingAddress,
+      shippingFee: sale.shippingFee,
     }));
 
     return { success: true, sales: formattedSales };
@@ -79,6 +83,10 @@ export async function createSaleAction(data: {
   agentId?: string;
   prospectId?: string;
   status?: string;
+  shippingType?: string;
+  shippingCity?: string;
+  shippingAddress?: string;
+  shippingFee?: number;
 }) {
   const user = await checkAuth();
   const role = user.role || "AGENT";
@@ -115,6 +123,10 @@ export async function createSaleAction(data: {
           agentId: targetAgentId,
           prospectId: data.prospectId || null,
           status: data.status || "PENDING",
+          shippingType: data.shippingType || "PICKUP",
+          shippingCity: data.shippingCity || null,
+          shippingAddress: data.shippingAddress || null,
+          shippingFee: data.shippingFee ?? 0,
         },
       });
 
@@ -168,13 +180,14 @@ export async function createSaleAction(data: {
         action: "CREATE_SALE",
         entity: "sale",
         entityId: result.sale.id,
-        details: `Vente enregistrée : ${data.customerName} a acheté ${data.quantity} x ${data.productId} pour un montant de ${(data.price ?? 0) * data.quantity} KMF. Commission générée: ${result.commission.amount} KMF`,
+        details: `Vente enregistrée : ${data.customerName} a acheté ${data.quantity} x ${data.productId} pour un montant de ${(data.price ?? 0) * data.quantity} KMF (Frais de livraison: ${data.shippingFee ?? 0} KMF, Mode: ${data.shippingType || "PICKUP"}). Commission générée: ${result.commission.amount} KMF`,
       },
     });
 
     revalidatePath("/sales");
     revalidatePath("/products");
     revalidatePath("/commissions");
+    revalidatePath("/deliveries");
     revalidatePath("/");
     return { success: true, saleId: result.sale.id };
   } catch (error: any) {
@@ -187,7 +200,7 @@ export async function updateDeliveryStatusAction(saleId: string, status: string)
   const user = await checkAuth();
   const role = user.role || "AGENT";
 
-  if (role !== "ADMIN" && role !== "ACCOUNTANT") {
+  if (role !== "ADMIN" && role !== "ACCOUNTANT" && role !== "DELIVERY_ASSISTANT") {
     return { success: false, error: "Non autorisé à modifier le statut de livraison." };
   }
 
@@ -284,6 +297,7 @@ export async function updateDeliveryStatusAction(saleId: string, status: string)
 
     revalidatePath("/sales");
     revalidatePath("/products");
+    revalidatePath("/deliveries");
     revalidatePath("/");
     return { success: true };
   } catch (error: any) {

@@ -69,6 +69,10 @@ interface Sale {
   status: string;
   commissionAmount: number;
   commissionStatus: string;
+  shippingType?: string;
+  shippingCity?: string | null;
+  shippingAddress?: string | null;
+  shippingFee?: number;
 }
 
 interface ProductSelect {
@@ -130,9 +134,20 @@ export function SalesClientPage({
     agentId: currentUser.id,
     prospectId: "none",
     status: "PENDING",
+    shippingType: "PICKUP",
+    shippingCity: "",
+    shippingAddress: "",
+    shippingFee: 0,
   });
 
-  const canManageDelivery = currentUser.role === "ADMIN" || currentUser.role === "ACCOUNTANT";
+  const getShippingFeeValue = (type: string, city: string) => {
+    if (type !== "DELIVERY") return 0;
+    if (city === "MORONI") return 1000;
+    if (city === "GRANDE_COMORE" || city === "ANJOUAN" || city === "MOHELI") return 1500;
+    return 0;
+  };
+
+  const canManageDelivery = currentUser.role === "ADMIN" || currentUser.role === "ACCOUNTANT" || currentUser.role === "DELIVERY_ASSISTANT";
   const isAgent = currentUser.role === "AGENT";
 
   // Filters
@@ -198,6 +213,10 @@ export function SalesClientPage({
         agentId: addForm.agentId,
         prospectId: addForm.prospectId === "none" ? undefined : addForm.prospectId,
         status: addForm.status,
+        shippingType: addForm.shippingType,
+        shippingCity: addForm.shippingType === "DELIVERY" ? addForm.shippingCity : undefined,
+        shippingAddress: addForm.shippingType === "DELIVERY" ? addForm.shippingAddress : undefined,
+        shippingFee: addForm.shippingFee,
       });
 
       if (res.success && res.saleId) {
@@ -215,12 +234,16 @@ export function SalesClientPage({
           productSku: "",
           quantity: addForm.quantity,
           price: finalPrice,
-          totalAmount: finalPrice * addForm.quantity,
+          totalAmount: finalPrice * addForm.quantity + addForm.shippingFee,
           agentId: addForm.agentId,
           agentName: activeAgent?.name || "Agent",
           status: addForm.status,
           commissionAmount: (activeProd?.agentCommission || 0) * addForm.quantity,
           commissionStatus: "PENDING",
+          shippingType: addForm.shippingType,
+          shippingCity: addForm.shippingType === "DELIVERY" ? addForm.shippingCity : undefined,
+          shippingAddress: addForm.shippingType === "DELIVERY" ? addForm.shippingAddress : undefined,
+          shippingFee: addForm.shippingFee,
         };
 
         setSales([newSale, ...sales]);
@@ -233,6 +256,10 @@ export function SalesClientPage({
           agentId: currentUser.id,
           prospectId: "none",
           status: "PENDING",
+          shippingType: "PICKUP",
+          shippingCity: "",
+          shippingAddress: "",
+          shippingFee: 0,
         });
       } else {
         toast.error(res.error || "Une erreur est survenue.");
@@ -267,6 +294,7 @@ export function SalesClientPage({
   // Get selected product details for commission/total estimate in the form
   const formSelectedProd = products.find((p) => p.id === addForm.productId);
   const formTotalPrice = (addForm.price > 0 ? addForm.price : (formSelectedProd?.salePrice || 0)) * addForm.quantity;
+  const formTotalTransaction = formTotalPrice + addForm.shippingFee;
   const formTotalCommission = (formSelectedProd?.agentCommission || 0) * addForm.quantity;
 
   return (
@@ -412,11 +440,30 @@ export function SalesClientPage({
                       <TableCell className="text-xs text-slate-400">
                         {formatDate(s.date)}
                       </TableCell>
-                      <TableCell className="font-bold text-slate-800 dark:text-slate-200">{s.customerName}</TableCell>
+                      <TableCell className="font-bold text-slate-850 dark:text-slate-200">
+                        <div>{s.customerName}</div>
+                        {s.shippingType === "DELIVERY" ? (
+                          <div className="text-[10px] text-indigo-600 font-medium mt-0.5 flex items-center gap-1">
+                            <span className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 px-1 py-0.5 rounded text-[9px] font-bold uppercase">{s.shippingCity}</span>
+                            <span className="text-slate-500 max-w-[150px] truncate">{s.shippingAddress}</span>
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+                            🛍️ Retrait sur place
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell className="text-xs font-semibold">{s.productName}</TableCell>
                       <TableCell className="text-center font-bold">{s.quantity}</TableCell>
                       <TableCell className="text-right text-slate-500">{s.price} KMF</TableCell>
-                      <TableCell className="text-right font-bold text-indigo-600">{s.totalAmount} KMF</TableCell>
+                      <TableCell className="text-right font-bold text-indigo-600">
+                        <div>{s.totalAmount} KMF</div>
+                        {(s.shippingFee ?? 0) > 0 && (
+                          <div className="text-[9px] text-slate-400 font-normal mt-0.5">
+                            (dont {s.shippingFee} KMF liv.)
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell className="text-xs font-medium">{s.agentName}</TableCell>
                       <TableCell>
                         {canManageDelivery ? (
@@ -569,6 +616,62 @@ export function SalesClientPage({
               </div>
             </div>
 
+            {/* Delivery Fields */}
+            <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3">
+              <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Mode de distribution</Label>
+              <Select
+                value={addForm.shippingType}
+                onValueChange={(val) => {
+                  const fee = getShippingFeeValue(val || "PICKUP", addForm.shippingCity);
+                  setAddForm({ ...addForm, shippingType: val || "PICKUP", shippingFee: fee });
+                }}
+              >
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Choisir le mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PICKUP">Retrait sur place (Gratuit)</SelectItem>
+                  <SelectItem value="DELIVERY">Livraison à domicile</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {addForm.shippingType === "DELIVERY" && (
+              <div className="space-y-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-lg border border-slate-200/50">
+                <div className="space-y-1">
+                  <Label htmlFor="shippingCity">Région / Zone de livraison</Label>
+                  <Select
+                    value={addForm.shippingCity}
+                    onValueChange={(val) => {
+                      const fee = getShippingFeeValue(addForm.shippingType, val || "");
+                      setAddForm({ ...addForm, shippingCity: val || "", shippingFee: fee });
+                    }}
+                  >
+                    <SelectTrigger id="shippingCity" className="bg-background">
+                      <SelectValue placeholder="Choisir la zone de livraison" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MORONI">Moroni (1 000 KMF)</SelectItem>
+                      <SelectItem value="GRANDE_COMORE">Grande Comore - Hors Moroni (1 500 KMF)</SelectItem>
+                      <SelectItem value="ANJOUAN">Anjouan (1 500 KMF)</SelectItem>
+                      <SelectItem value="MOHELI">Mohéli (1 500 KMF)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="shippingAddress">Adresse de livraison détaillée</Label>
+                  <Input
+                    id="shippingAddress"
+                    placeholder="Quartier, point de repère, détails..."
+                    value={addForm.shippingAddress}
+                    onChange={(e) => setAddForm({ ...addForm, shippingAddress: e.target.value })}
+                    className="bg-background"
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
             {!isAgent && (
               <div className="space-y-1">
                 <Label htmlFor="agentId">Affecter à l'agent commercial</Label>
@@ -594,11 +697,21 @@ export function SalesClientPage({
               <Card className="bg-indigo-50/50 dark:bg-indigo-950/20 border-indigo-100/30 p-3.5 space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
                 <div className="flex justify-between font-medium">
                   <span>Chiffre d'affaires estimé :</span>
-                  <span className="font-bold text-indigo-600 dark:text-indigo-400">{formatCurrency(formTotalPrice)}</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">{formatCurrency(formTotalPrice)}</span>
                 </div>
-                <div className="flex justify-between font-medium">
+                {addForm.shippingType === "DELIVERY" && (
+                  <div className="flex justify-between font-medium text-slate-600 dark:text-slate-400">
+                    <span>Frais de livraison ({addForm.shippingCity}) :</span>
+                    <span className="font-bold text-slate-700 dark:text-slate-300">{formatCurrency(addForm.shippingFee)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-medium border-t border-dashed border-slate-200 dark:border-slate-800 pt-1.5 text-sm">
+                  <span className="text-slate-900 dark:text-white font-bold">Total Facturé :</span>
+                  <span className="font-extrabold text-indigo-600 dark:text-indigo-400">{formatCurrency(formTotalTransaction)}</span>
+                </div>
+                <div className="flex justify-between font-medium text-[10px] text-emerald-600 pt-1">
                   <span>Commission Téléconseiller :</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(formTotalCommission)}</span>
+                  <span className="font-bold">{formatCurrency(formTotalCommission)}</span>
                 </div>
               </Card>
             )}

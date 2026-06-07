@@ -58,6 +58,7 @@ export interface SaleForChart {
   date: Date | string;
   price: number;
   quantity: number;
+  shippingFee?: number;
 }
 
 export function getChartDataForTimeframe(
@@ -80,7 +81,7 @@ export function getChartDataForTimeframe(
         const hour = sDate.getHours();
         const slot = slots.find((sl) => hour >= sl.startHour && hour < sl.endHour);
         if (slot) {
-          slot.salesSum += s.price * s.quantity;
+          slot.salesSum += s.price * s.quantity + (s.shippingFee || 0);
         }
       }
     });
@@ -111,7 +112,7 @@ export function getChartDataForTimeframe(
         const target = days.find((d) => d.dayIndex === dayIdx);
         if (target) {
           const stat = stats.find((st) => st.name === target.name);
-          if (stat) stat.ventes += s.price * s.quantity;
+          if (stat) stat.ventes += s.price * s.quantity + (s.shippingFee || 0);
         }
       }
     });
@@ -137,7 +138,7 @@ export function getChartDataForTimeframe(
         const dayOfMonth = sDate.getDate();
         let weekIdx = Math.floor((dayOfMonth - 1) / 7); // 0-6: Sem 1, 7-13: Sem 2, etc.
         if (weekIdx > 4) weekIdx = 4;
-        stats[weekIdx].ventes += s.price * s.quantity;
+        stats[weekIdx].ventes += s.price * s.quantity + (s.shippingFee || 0);
       }
     });
 
@@ -155,7 +156,7 @@ export function getChartDataForTimeframe(
       const sDate = new Date(s.date);
       if (sDate >= startY && sDate <= endY) {
         const mIdx = getMonth(sDate);
-        stats[mIdx].ventes += s.price * s.quantity;
+        stats[mIdx].ventes += s.price * s.quantity + (s.shippingFee || 0);
       }
     });
 
@@ -178,7 +179,7 @@ export function getChartDataForTimeframe(
     sales.forEach((s) => {
       const sDate = new Date(s.date);
       if (sDate >= startM && sDate <= endM) {
-        sum += s.price * s.quantity;
+        sum += s.price * s.quantity + (s.shippingFee || 0);
       }
     });
     
