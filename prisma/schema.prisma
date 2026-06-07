@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Better Auth Models
+model User {
+  id            String    @id
+  name          String
+  email         String
+  emailVerified Boolean
+  image         String?
+  createdAt     DateTime
+  updatedAt     DateTime
+  sessions      Session[]
+  accounts      Account[]
+
+  // Custom fields
+  role String @default("AGENT") // ADMIN, ACCOUNTANT, AGENT
+
+  // Relations
+  prospects     Prospect[]
+  sales         Sale[]
+  commissions   Commission[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}
+
+// Application Models
+
+model Prospect {
+  id                String   @id @default(cuid())
+  fullName          String
+  phone             String?
+  whatsapp          String?
+  address           String?
+  city              String?
+  source            String?
+  interestedProduct String?
+  comments          String?
+  status            String   @default("NEW") // NEW, CONTACTED, INTERESTED, FOLLOWUP, NEGOTIATION, CONFIRMED, CLIENT, LOST
+  agentId           String
+  agent             User     @relation(fields: [agentId], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  sales             Sale[]
+}
+
+model Product {
+  id              String   @id @default(cuid())
+  name            String
+  sku             String   @unique
+  category        String?
+  description     String?
+  purchasePrice   Float
+  salePrice       Float
+  agentCommission Float
+  stockAvailable  Int      @default(0)
+  alertThreshold  Int      @default(5)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  movements StockMovement[]
+  sales     Sale[]
+}
+
+model StockMovement {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  type      String // IN, OUT_SALE, OUT_RETURN, OUT_LOSS, OUT_DAMAGE
+  quantity  Int
+  cost      Float?
+  supplier  String?
+  date      DateTime @default(now())
+}
+
+model Sale {
+  id           String   @id @default(cuid())
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id])
+  quantity     Int
+  price        Float
+  customerName String
+  agentId      String
+  agent        User     @relation(fields: [agentId], references: [id])
+  status       String   @default("PENDING") // PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED
+  date         DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  prospectId   String?
+  prospect     Prospect? @relation(fields: [prospectId], references: [id])
+
+  commission Commission?
+}
+
+model Commission {
+  id      String   @id @default(cuid())
+  saleId  String   @unique
+  sale    Sale     @relation(fields: [saleId], references: [id])
+  agentId String
+  agent   User     @relation(fields: [agentId], references: [id])
+  amount  Float
+  date    DateTime @default(now())
+  status  String   @default("PENDING") // PENDING, PAID
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String
+  details   String?
+  createdAt DateTime @default(now())
+}
