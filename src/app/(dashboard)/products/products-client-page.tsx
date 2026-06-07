@@ -445,9 +445,9 @@ export function ProductsClientPage({
                       <TableCell className="font-bold text-slate-800 dark:text-slate-200">{p.name}</TableCell>
                       <TableCell className="font-mono text-xs">{p.sku}</TableCell>
                       <TableCell className="text-xs">{p.category}</TableCell>
-                      {!isAgent && <TableCell className="text-right font-medium text-slate-500">{p.purchasePrice} €</TableCell>}
-                      <TableCell className="text-right font-bold text-indigo-600">{p.salePrice} €</TableCell>
-                      {!isAgent && <TableCell className="text-right font-semibold text-emerald-600">{p.agentCommission} €</TableCell>}
+                      {!isAgent && <TableCell className="text-right font-medium text-slate-500">{p.purchasePrice} KMF</TableCell>}
+                      <TableCell className="text-right font-bold text-indigo-600">{p.salePrice} KMF</TableCell>
+                      {!isAgent && <TableCell className="text-right font-semibold text-emerald-600">{p.agentCommission} KMF</TableCell>}
                       <TableCell className="text-center font-black">{p.stockAvailable}</TableCell>
                       <TableCell>
                         {p.stockAvailable <= 0 ? (
@@ -764,7 +764,7 @@ export function ProductsClientPage({
                         <TableCell>{getMovementTypeBadge(move.type)}</TableCell>
                         <TableCell className="text-center font-bold">{move.quantity}</TableCell>
                         <TableCell className="text-slate-500">
-                          {move.cost ? `${move.cost} €` : "-"}
+                          {move.cost ? `${move.cost} KMF` : "-"}
                         </TableCell>
                         <TableCell className="text-slate-600 font-medium truncate max-w-[150px]">
                           {move.supplier || "-"}

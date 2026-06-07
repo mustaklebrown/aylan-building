@@ -131,7 +131,7 @@ export async function payCommissionAction(commissionId: string) {
         action: "PAY_COMMISSION",
         entity: "commission",
         entityId: commissionId,
-        details: `Paiement validé pour la commission de ${commission.amount} € due à l'agent ${commission.agent.name}`,
+        details: `Paiement validé pour la commission de ${commission.amount} KMF due à l'agent ${commission.agent.name}`,
       },
     });
 

@@ -433,7 +433,7 @@ export function AgentDetailClientPage({
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-slate-100 dark:stroke-slate-800" />
                   <XAxis dataKey="name" className="text-xs font-medium text-slate-400" />
-                  <YAxis className="text-xs font-medium text-slate-400" unit=" €" />
+                  <YAxis className="text-xs font-medium text-slate-400" unit=" KMF" />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "rgba(255, 255, 255, 0.95)",

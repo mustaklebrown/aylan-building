@@ -129,6 +129,9 @@ export function Sidebar({ user }: SidebarProps) {
       </nav>
 
       <div className="border-t border-slate-800 p-4 space-y-2">
+        <div className="px-3 pb-2 text-[10px] text-slate-500 text-center border-b border-slate-800/50 mb-2">
+          Moroni Magoudjou<br />Grande Comore, Comores
+        </div>
         <div className="px-3 py-2 text-xs text-slate-500 font-mono flex items-center justify-between">
           <span>Rôle:</span>
           <span className="bg-indigo-950 text-indigo-400 px-1.5 py-0.5 rounded font-bold">{role}</span>

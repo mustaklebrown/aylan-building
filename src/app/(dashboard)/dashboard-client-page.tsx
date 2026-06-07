@@ -282,7 +282,7 @@ export function DashboardClientPage({
                   <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-slate-100 dark:stroke-slate-800/60" />
                     <XAxis dataKey="name" className="text-[10px] font-bold text-slate-400" />
-                    <YAxis className="text-[10px] font-bold text-slate-400" unit=" €" />
+                    <YAxis className="text-[10px] font-bold text-slate-400" unit=" KMF" />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "rgba(255, 255, 255, 0.95)",

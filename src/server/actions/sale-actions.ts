@@ -168,7 +168,7 @@ export async function createSaleAction(data: {
         action: "CREATE_SALE",
         entity: "sale",
         entityId: result.sale.id,
-        details: `Vente enregistrée : ${data.customerName} a acheté ${data.quantity} x ${data.productId} pour un montant de ${(data.price ?? 0) * data.quantity} €. Commission générée: ${result.commission.amount} €`,
+        details: `Vente enregistrée : ${data.customerName} a acheté ${data.quantity} x ${data.productId} pour un montant de ${(data.price ?? 0) * data.quantity} KMF. Commission générée: ${result.commission.amount} KMF`,
       },
     });
 

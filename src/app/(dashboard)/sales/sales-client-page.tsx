@@ -415,8 +415,8 @@ export function SalesClientPage({
                       <TableCell className="font-bold text-slate-800 dark:text-slate-200">{s.customerName}</TableCell>
                       <TableCell className="text-xs font-semibold">{s.productName}</TableCell>
                       <TableCell className="text-center font-bold">{s.quantity}</TableCell>
-                      <TableCell className="text-right text-slate-500">{s.price} €</TableCell>
-                      <TableCell className="text-right font-bold text-indigo-600">{s.totalAmount} €</TableCell>
+                      <TableCell className="text-right text-slate-500">{s.price} KMF</TableCell>
+                      <TableCell className="text-right font-bold text-indigo-600">{s.totalAmount} KMF</TableCell>
                       <TableCell className="text-xs font-medium">{s.agentName}</TableCell>
                       <TableCell>
                         {canManageDelivery ? (
@@ -444,7 +444,7 @@ export function SalesClientPage({
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex flex-col items-end">
-                          <span className="font-semibold text-emerald-600">{s.commissionAmount} €</span>
+                          <span className="font-semibold text-emerald-600">{s.commissionAmount} KMF</span>
                           <span className="text-[10px] text-slate-400 font-mono lowercase">({s.commissionStatus})</span>
                         </div>
                       </TableCell>
@@ -485,7 +485,7 @@ export function SalesClientPage({
                 <SelectContent>
                   {products.map((p) => (
                     <SelectItem key={p.id} value={p.id} disabled={p.stockAvailable <= 0}>
-                      {p.name} • Prix : {p.salePrice} € {p.stockAvailable <= 0 ? "(Rupture)" : `(Stock : ${p.stockAvailable})`}
+                      {p.name} • Prix : {p.salePrice} KMF {p.stockAvailable <= 0 ? "(Rupture)" : `(Stock : ${p.stockAvailable})`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -506,7 +506,7 @@ export function SalesClientPage({
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="price">Prix de vente unitaire (€)</Label>
+                <Label htmlFor="price">Prix de vente unitaire (KMF)</Label>
                 <Input
                   id="price"
                   type="number"

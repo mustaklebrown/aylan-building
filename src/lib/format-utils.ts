@@ -14,11 +14,11 @@ export function formatNumber(value: number): string {
 }
 
 /**
- * Format a currency amount in EUR.
- * e.g. 82500 → "82 500 €"
+ * Format a currency amount in KMF.
+ * e.g. 82500 → "82 500 KMF"
  */
 export function formatCurrency(value: number): string {
-  return `${value.toLocaleString(LOCALE)} €`;
+  return `${value.toLocaleString(LOCALE)} KMF`;
 }
 
 /**
