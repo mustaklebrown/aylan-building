@@ -1,15 +1,22 @@
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-import { Pool } from 'pg';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { neonConfig } from '@neondatabase/serverless';
+import { PrismaNeon } from '@prisma/adapter-neon';
+import ws from 'ws';
+
+// Set WebSocket constructor for server/Node.js environment.
+// PrismaNeon v7.8+ accepts a PoolConfig directly — it creates the Pool internally.
+if (typeof window === 'undefined') {
+  neonConfig.webSocketConstructor = ws;
+}
 
 const prismaClientSingleton = () => {
-  const url = process.env.DATABASE_URL?.split('?')[0]; // Strip query params to avoid pg parsing issues
-  const pool = new Pool({
-    connectionString: url,
-    ssl: { rejectUnauthorized: false },
-    connectionTimeoutMillis: 60000,
+  // max: 1 limits to a single WebSocket connection — avoids concurrent connection
+  // attempts that may be rate-limited or blocked by the local network.
+  const adapter = new PrismaNeon({
+    connectionString: process.env.DATABASE_URL!,
+    max: 1,
   });
-  const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 };
 
