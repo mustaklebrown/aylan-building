@@ -57,3 +57,42 @@ export async function seedTestAccountsAction() {
 
   return { success: true, results };
 }
+
+export async function changePasswordAction(data: {
+  currentPassword?: string;
+  newPassword: string;
+}) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session) {
+    return { success: false, error: "Non authentifié" };
+  }
+
+  try {
+    await auth.api.changePassword({
+      body: {
+        currentPassword: data.currentPassword || "",
+        newPassword: data.newPassword,
+      },
+      headers: await headers(),
+    });
+
+    // Optionnel : Audit log
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "CHANGE_PASSWORD",
+        entity: "user",
+        entityId: session.user.id,
+        details: `Changement de mot de passe réussi pour l'utilisateur ${session.user.email}`,
+      },
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error changing password:", error);
+    return { success: false, error: error.message || "Erreur lors du changement de mot de passe" };
+  }
+}

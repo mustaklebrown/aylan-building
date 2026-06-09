@@ -44,6 +44,8 @@ import {
   Shield,
   Mail,
   Calendar,
+  Copy,
+  Check,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -95,9 +97,12 @@ export function AgentsClientPage({
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createdPassword, setCreatedPassword] = useState("");
+  const [copied, setCopied] = useState(false);
 
   // Form states
   const [addForm, setAddForm] = useState({ name: "", email: "", password: "" });
@@ -159,6 +164,12 @@ export function AgentsClientPage({
           conversionRate: 0,
         };
         setAgents([newAgent, ...agents]);
+        
+        // Save generated password and open success modal
+        setCreatedPassword(res.generatedPassword || "");
+        setCopied(false);
+        setIsSuccessOpen(true);
+        
         setAddForm({ name: "", email: "", password: "" });
         setIsAddOpen(false);
       } else {
@@ -454,7 +465,7 @@ export function AgentsClientPage({
           <DialogHeader>
             <DialogTitle>Ajouter un nouveau commercial</DialogTitle>
             <DialogDescription>
-              Créez un compte pour un nouvel agent. Un email et un mot de passe par défaut lui seront attribués.
+              Créez un compte pour un nouvel agent. Un mot de passe sécurisé sera généré automatiquement.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddAgent} className="space-y-4 py-2">
@@ -487,19 +498,6 @@ export function AgentsClientPage({
                 />
               </div>
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="password">Mot de passe initial (optionnel)</Label>
-              <Input
-                id="password"
-                type="text"
-                placeholder="password123"
-                value={addForm.password}
-                onChange={(e) => setAddForm({ ...addForm, password: e.target.value })}
-              />
-              <p className="text-[10px] text-slate-400">
-                Par défaut: <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">password123</code>
-              </p>
-            </div>
             <DialogFooter className="pt-4">
               <Button
                 type="button"
@@ -514,10 +512,57 @@ export function AgentsClientPage({
                 disabled={isSubmitting}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white"
               >
-                {isSubmitting ? "Création..." : "Créer le compte"}
+                {isSubmitting ? "Création..." : "Générer et créer"}
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success Modal (Generated Password) */}
+      <Dialog open={isSuccessOpen} onOpenChange={setIsSuccessOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-emerald-600 flex items-center gap-2 font-heading font-bold">
+              <Check className="h-5 w-5 bg-emerald-500/10 p-0.5 rounded-full" /> Agent créé avec succès !
+            </DialogTitle>
+            <DialogDescription>
+              Veuillez copier le mot de passe généré automatiquement pour le transmettre à l'agent commercial. Il devra le modifier depuis son profil.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-3">
+            <div className="space-y-1">
+              <Label className="text-slate-500 text-xs font-bold uppercase">Mot de passe généré</Label>
+              <div className="flex gap-2 items-center">
+                <div className="flex-1 bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 font-mono text-sm text-slate-800 dark:text-slate-200 select-all overflow-x-auto">
+                  {createdPassword}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 shrink-0"
+                  onClick={() => {
+                    navigator.clipboard.writeText(createdPassword);
+                    setCopied(true);
+                    toast.success("Mot de passe copié !");
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                >
+                  {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              onClick={() => setIsSuccessOpen(false)}
+              className="w-full bg-slate-900 text-white hover:bg-slate-850"
+            >
+              Fermer
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

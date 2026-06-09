@@ -279,7 +279,15 @@ export async function createAgentAction(data: {
 }) {
   await checkAuth();
 
-  const { name, email, password = "password123" } = data;
+  const { name, email } = data;
+
+  // Generate random 12-character alphanumeric/symbol password
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$";
+  let generatedPassword = "";
+  for (let i = 0; i < 12; i++) {
+    generatedPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  const passwordToUse = data.password && data.password.trim() !== "" ? data.password : generatedPassword;
 
   try {
     // Check if user already exists
@@ -295,7 +303,7 @@ export async function createAgentAction(data: {
     const created = await auth.api.signUpEmail({
       body: {
         email,
-        password,
+        password: passwordToUse,
         name,
       },
       headers: await headers(),
@@ -325,7 +333,7 @@ export async function createAgentAction(data: {
       }
 
       revalidatePath("/agents");
-      return { success: true, agentId: created.user.id };
+      return { success: true, agentId: created.user.id, generatedPassword: passwordToUse };
     }
 
     return { success: false, error: "Erreur lors de la création du compte." };

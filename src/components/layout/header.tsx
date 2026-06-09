@@ -177,7 +177,7 @@ export function Header({ user }: HeaderProps) {
                   priority
                 />
               </div>
-              
+
               {/* Navigation */}
               <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5 mt-2">
                 <p
@@ -213,7 +213,7 @@ export function Header({ user }: HeaderProps) {
                   );
                 })}
               </nav>
-              
+
               {/* User footer */}
               <div
                 className="p-3 space-y-2 shrink-0"
@@ -300,12 +300,18 @@ export function Header({ user }: HeaderProps) {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              Profil
+            <DropdownMenuItem >
+              <Link href="/profile" className="cursor-pointer w-full">
+                Profil
+              </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem>
-              Paramètres
-            </DropdownMenuItem>
+            {user?.role === "ADMIN" && (
+              <DropdownMenuItem >
+                <Link href="/settings" className="cursor-pointer w-full">
+                  Paramètres
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer">
               <LogOut className="mr-2 h-4 w-4" />
