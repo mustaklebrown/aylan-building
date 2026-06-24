@@ -119,7 +119,7 @@ export function SalesClientPage({
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [timeframe, setTimeframe] = useState<Timeframe>("month");
-  
+
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -277,7 +277,7 @@ export function SalesClientPage({
       const res = await updateDeliveryStatusAction(saleId, newStatus);
       if (res.success) {
         toast.success("Statut de livraison mis à jour !");
-        
+
         setSales(
           sales.map((s) => (s.id === saleId ? { ...s, status: newStatus } : s))
         );
@@ -527,7 +527,9 @@ export function SalesClientPage({
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Choisir un produit" />
+                  <SelectValue placeholder="Choisir un produit">
+                    {addForm.productId ? (products.find((p) => p.id === addForm.productId)?.name) : undefined}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {products.map((p) => (

@@ -3,6 +3,7 @@ import { Outfit, Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { PwaRegister } from "@/components/pwa-register";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -22,6 +23,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Aylan Group Dashboard",
   description: "Dashboard de gestion commerciale et de stock",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Aylan Group",
+  },
 };
 
 export default function RootLayout({
@@ -35,6 +41,7 @@ export default function RootLayout({
       className={`${inter.variable} ${outfit.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <PwaRegister />
         <TooltipProvider>
           {children}
         </TooltipProvider>

@@ -641,7 +641,9 @@ export function ProductsClientPage({
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Choisir un produit" />
+                  <SelectValue placeholder="Choisir un produit">
+                    {moveForm.productId ? (products.find((p) => p.id === moveForm.productId)?.name) : undefined}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {products.map((p) => (
