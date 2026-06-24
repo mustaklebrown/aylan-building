@@ -35,11 +35,13 @@ import {
   TrendingUp,
   User,
   Filter,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { payCommissionAction } from "@/server/actions/commission-actions";
 import { Timeframe, filterByTimeframe } from "@/lib/date-utils";
 import { formatCurrency, formatDate } from "@/lib/format-utils";
+import { exportToCSV } from "@/lib/export-utils";
 
 interface Commission {
   id: string;
@@ -142,6 +144,39 @@ export function CommissionsClientPage({
     }
   };
 
+  const handleExport = () => {
+    exportToCSV(
+      filteredCommissions,
+      [
+        "ID Commission",
+        "Date",
+        "Agent",
+        "Email Agent",
+        "ID Agent",
+        "ID Vente",
+        "Client Vente",
+        "Produit Vente",
+        "Montant Vente (KMF)",
+        "Montant Commission (KMF)",
+        "Statut Commission",
+      ],
+      (c) => [
+        c.id,
+        formatDate(c.date),
+        c.agentName,
+        c.agentEmail,
+        c.agentId,
+        c.saleId,
+        c.customerName,
+        c.productName,
+        c.saleTotal,
+        c.amount,
+        c.status === "PAID" ? "Payee" : "En attente",
+      ],
+      "commissions_aylan"
+    );
+  };
+
   return (    <div className="flex flex-col space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -152,8 +187,17 @@ export function CommissionsClientPage({
           <p className="text-sm text-muted-foreground mt-1">
             {isAgent
               ? "Consultez le détail de vos gains et commissions sur vos ventes."
-              : "Suivez les commissions dues aux agents, validez les versements et visualisez les totaux."}
+              : "Suivez les commissions dues aux agents, valisez les versements et visualisez les totaux."}
           </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={handleExport}
+            variant="outline"
+            className="border-slate-200 hover:bg-slate-50 font-medium"
+          >
+            <Download className="mr-2 h-4 w-4" /> Exporter en Excel
+          </Button>
         </div>
       </div>
 

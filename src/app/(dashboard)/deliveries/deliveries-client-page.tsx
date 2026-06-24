@@ -51,10 +51,12 @@ import {
   Phone,
   FileText,
   AlertCircle,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { updateDeliveryStatusAction } from "@/server/actions/sale-actions";
 import { formatCurrency, formatDate } from "@/lib/format-utils";
+import { exportToCSV } from "@/lib/export-utils";
 
 interface SaleDelivery {
   id: string;
@@ -184,6 +186,49 @@ export function DeliveriesClientPage({
     window.print();
   };
 
+  const handleExport = () => {
+    exportToCSV(
+      filteredSales,
+      [
+        "ID Commande",
+        "Date",
+        "Client",
+        "Telephone",
+        "WhatsApp",
+        "Produit",
+        "SKU",
+        "Quantite",
+        "Prix Unitaire (KMF)",
+        "Frais de Livraison (KMF)",
+        "Total (KMF)",
+        "Agent",
+        "Statut Livraison",
+        "Mode de Distribution",
+        "Region",
+        "Adresse Detaillee",
+      ],
+      (s) => [
+        s.id,
+        formatDate(s.date),
+        s.customerName,
+        s.customerPhone,
+        s.customerWhatsapp || "",
+        s.productName,
+        s.productSku,
+        s.quantity,
+        s.price,
+        s.shippingFee,
+        s.totalAmount,
+        s.agentName,
+        s.status,
+        s.shippingType,
+        s.shippingCity || "",
+        s.shippingAddress || "",
+      ],
+      "livraisons_aylan"
+    );
+  };
+
   const selectedSalesForRunsheet = sales.filter((s) => selectedIds.includes(s.id));
 
   return (
@@ -268,19 +313,29 @@ export function DeliveriesClientPage({
           </p>
         </div>
         
-        {selectedIds.length > 0 && (
-          <div className="flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
-            <Badge className="bg-indigo-600 text-white font-bold py-1 px-2.5">
-              {selectedIds.length} sélectionné(s)
-            </Badge>
-            <Button
-              onClick={() => setRunsheetOpen(true)}
-              className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold gap-2 border border-slate-800"
-            >
-              <ClipboardList className="h-3.5 w-3.5" /> Feuille de Route
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={handleExport}
+            variant="outline"
+            className="border-slate-200 hover:bg-slate-50 font-medium"
+          >
+            <Download className="mr-2 h-4 w-4" /> Exporter en Excel
+          </Button>
+          
+          {selectedIds.length > 0 && (
+            <div className="flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
+              <Badge className="bg-indigo-600 text-white font-bold py-1 px-2.5">
+                {selectedIds.length} sélectionné(s)
+              </Badge>
+              <Button
+                onClick={() => setRunsheetOpen(true)}
+                className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold gap-2 border border-slate-800"
+              >
+                <ClipboardList className="h-3.5 w-3.5" /> Feuille de Route
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Delivery Summary metrics */}

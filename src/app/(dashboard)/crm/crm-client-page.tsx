@@ -46,6 +46,7 @@ import {
   MessageSquare,
   Contact,
   Filter,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -53,6 +54,7 @@ import {
   updateProspectStatusForAgentAction,
 } from "@/server/actions/prospect-actions";
 import { formatDate } from "@/lib/format-utils";
+import { exportToCSV } from "@/lib/export-utils";
 
 interface Prospect {
   id: string;
@@ -251,6 +253,39 @@ export function CRMClientPage({
     }
   };
 
+  const handleExport = () => {
+    exportToCSV(
+      filteredProspects,
+      [
+        "Nom Complet",
+        "Telephone",
+        "WhatsApp",
+        "Ville",
+        "Adresse",
+        "Source d'Acquisition",
+        "Produit d'Interet",
+        "Agent Affecte",
+        "Statut",
+        "Commentaires",
+        "Date de Creation",
+      ],
+      (p) => [
+        p.fullName,
+        p.phone || "",
+        p.whatsapp || "",
+        p.city || "",
+        p.address || "",
+        p.source || "",
+        p.interestedProduct || "",
+        p.agentName,
+        getStatusLabel(p.status),
+        p.comments || "",
+        formatDate(p.createdAt),
+      ],
+      "prospects_aylan"
+    );
+  };
+
   return (
     <div className="flex flex-col space-y-6">
       {/* Header */}
@@ -263,12 +298,21 @@ export function CRMClientPage({
             Gérez vos contacts commerciaux et suivez l'avancement de chaque prospect dans le pipeline.
           </p>
         </div>
-        <Button
-          onClick={() => setIsAddOpen(true)}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
-        >
-          <Plus className="mr-2 h-4 w-4" /> Ajouter un prospect
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={handleExport}
+            variant="outline"
+            className="border-slate-200 hover:bg-slate-50 font-medium"
+          >
+            <Download className="mr-2 h-4 w-4" /> Exporter en Excel
+          </Button>
+          <Button
+            onClick={() => setIsAddOpen(true)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
+          >
+            <Plus className="mr-2 h-4 w-4" /> Ajouter un prospect
+          </Button>
+        </div>
       </div>
 
       {/* KPI Cards */}

@@ -47,6 +47,7 @@ import {
   DollarSign,
   Coins,
   Warehouse,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -54,6 +55,7 @@ import {
   recordStockMovementAction,
 } from "@/server/actions/product-actions";
 import { formatCurrency, formatDate } from "@/lib/format-utils";
+import { exportToCSV } from "@/lib/export-utils";
 
 interface StockMovement {
   id: string;
@@ -292,6 +294,52 @@ export function ProductsClientPage({
     }
   };
 
+  const handleExport = () => {
+    const headers = isAgent
+      ? [
+          "Nom du Produit",
+          "SKU",
+          "Categorie",
+          "Prix de Vente (KMF)",
+          "Stock Disponible",
+          "Seuil d'Alerte",
+        ]
+      : [
+          "Nom du Produit",
+          "SKU",
+          "Categorie",
+          "Prix d'Achat (KMF)",
+          "Prix de Vente (KMF)",
+          "Commission Agent (KMF)",
+          "Stock Disponible",
+          "Seuil d'Alerte",
+          "Alerte Stock",
+        ];
+
+    const mapRow = (p: Product) => isAgent
+      ? [
+          p.name,
+          p.sku,
+          p.category,
+          p.salePrice,
+          p.stockAvailable,
+          p.alertThreshold,
+        ]
+      : [
+          p.name,
+          p.sku,
+          p.category,
+          p.purchasePrice,
+          p.salePrice,
+          p.agentCommission,
+          p.stockAvailable,
+          p.alertThreshold,
+          p.stockAvailable <= p.alertThreshold ? "OUI" : "NON",
+        ];
+
+    exportToCSV(filteredProducts, headers, mapRow, "produits_aylan");
+  };
+
   return (
     <div className="flex flex-col space-y-6">
       {/* Page Header */}
@@ -306,23 +354,32 @@ export function ProductsClientPage({
               : "Gérez les fiches articles, ajustez les stocks et suivez l'historique des entrées/sorties."}
           </p>
         </div>
-        {canEdit && (
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={() => setIsMoveOpen(true)}
-              variant="outline"
-              className="border-slate-200 hover:bg-slate-50 font-medium"
-            >
-              <ArrowUpDown className="mr-2 h-4 w-4" /> Mouvement de Stock
-            </Button>
-            <Button
-              onClick={() => setIsAddOpen(true)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
-            >
-              <Plus className="mr-2 h-4 w-4" /> Ajouter un produit
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={handleExport}
+            variant="outline"
+            className="border-slate-200 hover:bg-slate-50 font-medium"
+          >
+            <Download className="mr-2 h-4 w-4" /> Exporter en Excel
+          </Button>
+          {canEdit && (
+            <>
+              <Button
+                onClick={() => setIsMoveOpen(true)}
+                variant="outline"
+                className="border-slate-200 hover:bg-slate-50 font-medium"
+              >
+                <ArrowUpDown className="mr-2 h-4 w-4" /> Mouvement de Stock
+              </Button>
+              <Button
+                onClick={() => setIsAddOpen(true)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
+              >
+                <Plus className="mr-2 h-4 w-4" /> Ajouter un produit
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Stock summaries */}

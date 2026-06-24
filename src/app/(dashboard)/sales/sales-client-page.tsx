@@ -46,6 +46,7 @@ import {
   DollarSign,
   Truck,
   MoreVertical,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -54,6 +55,7 @@ import {
 } from "@/server/actions/sale-actions";
 import { Timeframe, filterByTimeframe } from "@/lib/date-utils";
 import { formatCurrency, formatDate } from "@/lib/format-utils";
+import { exportToCSV } from "@/lib/export-utils";
 
 interface Sale {
   id: string;
@@ -291,6 +293,49 @@ export function SalesClientPage({
     }
   };
 
+  const handleExport = () => {
+    exportToCSV(
+      filteredSales,
+      [
+        "ID Vente",
+        "Date",
+        "Client",
+        "Produit",
+        "SKU",
+        "Quantite",
+        "Prix Unitaire (KMF)",
+        "Frais de Livraison (KMF)",
+        "Total (KMF)",
+        "Agent Commercial",
+        "Statut Livraison",
+        "Type de Livraison",
+        "Ville de Livraison",
+        "Adresse Detaillee",
+        "Montant Commission (KMF)",
+        "Statut Commission",
+      ],
+      (sale) => [
+        sale.id,
+        formatDate(sale.date),
+        sale.customerName,
+        sale.productName,
+        sale.productSku,
+        sale.quantity,
+        sale.price,
+        sale.shippingFee,
+        sale.totalAmount,
+        sale.agentName,
+        sale.status,
+        sale.shippingType,
+        sale.shippingCity || "",
+        sale.shippingAddress || "",
+        sale.commissionAmount,
+        sale.commissionStatus,
+      ],
+      "ventes_aylan"
+    );
+  };
+
   // Get selected product details for commission/total estimate in the form
   const formSelectedProd = products.find((p) => p.id === addForm.productId);
   const formTotalPrice = (addForm.price > 0 ? addForm.price : (formSelectedProd?.salePrice || 0)) * addForm.quantity;
@@ -310,6 +355,13 @@ export function SalesClientPage({
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            onClick={handleExport}
+            variant="outline"
+            className="border-slate-200 hover:bg-slate-50 font-medium"
+          >
+            <Download className="mr-2 h-4 w-4" /> Exporter en Excel
+          </Button>
           <Button
             onClick={() => setIsAddOpen(true)}
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
