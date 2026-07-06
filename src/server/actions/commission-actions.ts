@@ -20,11 +20,20 @@ async function checkAuth() {
 export async function getCommissionsAction() {
   const user = await checkAuth();
   const role = user.role || "AGENT";
-  const isAgent = role === "AGENT";
+
+  // Build where clause based on role
+  let whereClause: any = {};
+  if (role === "AGENT") {
+    whereClause = { agentId: user.id };
+  } else if (role === "LEADER") {
+    // Leaders see commissions from their agents
+    whereClause = { agent: { leaderId: user.id } };
+  }
+  // ADMIN and ACCOUNTANT see all
 
   try {
     const commissions = await prisma.commission.findMany({
-      where: isAgent ? { agentId: user.id } : {},
+      where: whereClause,
       orderBy: { date: "desc" },
       include: {
         agent: {

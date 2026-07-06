@@ -79,6 +79,9 @@ interface Product {
   stockAvailable: number;
   alertThreshold: number;
   isAlert: boolean;
+  isCommon: boolean;
+  leaderId: string | null;
+  leaderName: string | null;
   recentMovements: StockMovement[];
 }
 
@@ -136,8 +139,9 @@ export function ProductsClientPage({
     supplier: "",
   });
 
-  const canEdit = currentUser.role === "ADMIN" || currentUser.role === "ACCOUNTANT";
+  const canEdit = currentUser.role === "ADMIN" || currentUser.role === "ACCOUNTANT" || currentUser.role === "LEADER";
   const isAgent = currentUser.role === "AGENT";
+  const isLeader = currentUser.role === "LEADER";
 
   // Categories list
   const categories = ["all", ...Array.from(new Set(products.map((p) => p.category)))];
@@ -170,6 +174,9 @@ export function ProductsClientPage({
           category: res.product.category || "Autre",
           description: res.product.description || "",
           isAlert: res.product.stockAvailable <= res.product.alertThreshold,
+          isCommon: res.product.isCommon,
+          leaderId: res.product.leaderId,
+          leaderName: isLeader ? currentUser.name : null,
           recentMovements: res.product.stockAvailable > 0 ? [{
             id: "initial",
             productId: res.product.id,
@@ -486,13 +493,14 @@ export function ProductsClientPage({
                   {!isAgent && <TableHead className="text-right">Commission Agent</TableHead>}
                   <TableHead className="text-center">Stock</TableHead>
                   <TableHead>Statut</TableHead>
+                  {!isAgent && <TableHead>Type</TableHead>}
                   {!isAgent && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isAgent ? 6 : 9} className="text-center py-8 text-slate-400 text-sm">
+                    <TableCell colSpan={isAgent ? 6 : 10} className="text-center py-8 text-slate-400 text-sm">
                       Aucun produit dans le catalogue.
                     </TableCell>
                   </TableRow>
@@ -515,6 +523,15 @@ export function ProductsClientPage({
                           <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200">En stock</Badge>
                         )}
                       </TableCell>
+                      {!isAgent && (
+                        <TableCell>
+                          {p.isCommon ? (
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200 text-[10px] font-semibold">Commun</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200 text-[10px] font-semibold">{p.leaderName || "Spécifique"}</Badge>
+                          )}
+                        </TableCell>
+                      )}
                       {!isAgent && (
                         <TableCell className="text-right">
                           <Button

@@ -20,11 +20,20 @@ async function checkAuth() {
 export async function getSalesAction() {
   const user = await checkAuth();
   const role = user.role || "AGENT";
-  const isAgent = role === "AGENT";
+
+  // Build where clause based on role
+  let whereClause: any = {};
+  if (role === "AGENT") {
+    whereClause = { agentId: user.id };
+  } else if (role === "LEADER") {
+    // Leaders see sales from their agents
+    whereClause = { agent: { leaderId: user.id } };
+  }
+  // ADMIN, ACCOUNTANT, DELIVERY_ASSISTANT see all
 
   try {
     const sales = await prisma.sale.findMany({
-      where: isAgent ? { agentId: user.id } : {},
+      where: whereClause,
       orderBy: { date: "desc" },
       include: {
         product: {
@@ -91,8 +100,17 @@ export async function createSaleAction(data: {
   const user = await checkAuth();
   const role = user.role || "AGENT";
 
-  // If agent, they can only submit for themselves. Admins/Accountants can submit for anyone.
-  const targetAgentId = role === "AGENT" ? user.id : data.agentId || user.id;
+  // If agent, they can only submit for themselves.
+  // Leaders can submit for their agents.
+  // Admins/Accountants can submit for anyone.
+  let targetAgentId = user.id;
+  if (role === "AGENT") {
+    targetAgentId = user.id;
+  } else if (role === "LEADER") {
+    targetAgentId = data.agentId || user.id;
+  } else {
+    targetAgentId = data.agentId || user.id;
+  }
 
   try {
     // Start database transaction
@@ -151,16 +169,20 @@ export async function createSaleAction(data: {
         },
       });
 
-      // 6. Create Commission record
-      const commissionAmount = product.agentCommission * data.quantity;
-      const commission = await tx.commission.create({
-        data: {
-          saleId: sale.id,
-          agentId: targetAgentId,
-          amount: commissionAmount,
-          status: "PENDING",
-        },
-      });
+      // 6. Create Commission record ONLY if the sale is validated (not PENDING and not CANCELLED)
+      const isSaleValidated = sale.status !== "PENDING" && sale.status !== "CANCELLED";
+      let commission = null;
+      if (isSaleValidated) {
+        const commissionAmount = product.agentCommission * data.quantity;
+        commission = await tx.commission.create({
+          data: {
+            saleId: sale.id,
+            agentId: targetAgentId,
+            amount: commissionAmount,
+            status: "PENDING",
+          },
+        });
+      }
 
       // 7. If linked to a prospect, update their status to CLIENT
       if (data.prospectId) {
@@ -180,7 +202,7 @@ export async function createSaleAction(data: {
         action: "CREATE_SALE",
         entity: "sale",
         entityId: result.sale.id,
-        details: `Vente enregistrée : ${data.customerName} a acheté ${data.quantity} x ${data.productId} pour un montant de ${(data.price ?? 0) * data.quantity} KMF (Frais de livraison: ${data.shippingFee ?? 0} KMF, Mode: ${data.shippingType || "PICKUP"}). Commission générée: ${result.commission.amount} KMF`,
+        details: `Vente enregistrée : ${data.customerName} a acheté ${data.quantity} x ${data.productId} pour un montant de ${(data.price ?? 0) * data.quantity} KMF (Frais de livraison: ${data.shippingFee ?? 0} KMF, Mode: ${data.shippingType || "PICKUP"}). Commission générée: ${result.commission?.amount || 0} KMF`,
       },
     });
 
@@ -273,6 +295,35 @@ export async function updateDeliveryStatusAction(saleId: string, status: string)
             quantity: sale.quantity,
             cost: product.purchasePrice,
             supplier: `Vente réactivée N° ${sale.id}`,
+          },
+        });
+      }
+
+      // Manage Commission Lifecycle based on validation status
+      const isValidatedStatus = status === "CONFIRMED" || status === "SHIPPED" || status === "DELIVERED";
+      
+      if (isValidatedStatus) {
+        // Create commission if it doesn't exist
+        const existingCommission = await tx.commission.findUnique({
+          where: { saleId },
+        });
+        if (!existingCommission) {
+          const commissionAmount = sale.product.agentCommission * sale.quantity;
+          await tx.commission.create({
+            data: {
+              saleId,
+              agentId: sale.agentId,
+              amount: commissionAmount,
+              status: "PENDING",
+            },
+          });
+        }
+      } else {
+        // Remove commission if the sale is cancelled or pending, but only if it hasn't been paid yet
+        await tx.commission.deleteMany({
+          where: {
+            saleId,
+            status: "PENDING",
           },
         });
       }

@@ -132,7 +132,7 @@ export function CRMClientPage({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [updatingProspectId, setUpdatingProspectId] = useState<string | null>(null);
 
-  const isAdmin = currentUser.role === "ADMIN";
+  const isAdmin = currentUser.role === "ADMIN" || currentUser.role === "LEADER";
 
   const [form, setForm] = useState({
     fullName: "",

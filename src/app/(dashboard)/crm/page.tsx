@@ -18,8 +18,8 @@ export default async function CRMPage() {
     redirect("/login");
   }
 
-  // Accountants don't have access to CRM
-  if (session.user.role === "ACCOUNTANT") {
+  // Accountants and Delivery Assistants don't have access to CRM
+  if (session.user.role === "ACCOUNTANT" || session.user.role === "DELIVERY_ASSISTANT") {
     redirect("/unauthorized");
   }
 

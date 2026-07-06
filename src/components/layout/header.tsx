@@ -14,6 +14,7 @@ import {
   Settings,
   Contact,
   Truck,
+  Calculator,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,7 @@ import { cn } from "@/lib/utils";
 const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   ADMIN: { label: "Administrateur", color: "#F3C442", bg: "rgba(243,196,66,0.12)" },
   ACCOUNTANT: { label: "Comptable", color: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
+  LEADER: { label: "Leader", color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
   AGENT: { label: "Agent Commercial", color: "#34d399", bg: "rgba(52,211,153,0.12)" },
   DELIVERY_ASSISTANT: { label: "Livraisons", color: "#f97316", bg: "rgba(249,115,22,0.12)" },
 };
@@ -61,31 +63,31 @@ const navItems = [
     title: "Tableau de bord",
     href: "/",
     icon: LayoutDashboard,
-    roles: ["ADMIN", "ACCOUNTANT", "AGENT", "DELIVERY_ASSISTANT"],
+    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "DELIVERY_ASSISTANT"],
   },
   {
     title: "CRM / Prospects",
     href: "/crm",
     icon: Users,
-    roles: ["ADMIN", "AGENT"],
+    roles: ["ADMIN", "LEADER", "AGENT"],
   },
   {
     title: "Téléconseillers",
     href: "/agents",
     icon: Contact,
-    roles: ["ADMIN", "ACCOUNTANT"],
+    roles: ["ADMIN", "ACCOUNTANT", "LEADER"],
   },
   {
     title: "Produits & Stock",
     href: "/products",
     icon: Package,
-    roles: ["ADMIN", "ACCOUNTANT", "AGENT", "DELIVERY_ASSISTANT"],
+    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "DELIVERY_ASSISTANT"],
   },
   {
     title: "Ventes",
     href: "/sales",
     icon: ShoppingCart,
-    roles: ["ADMIN", "ACCOUNTANT", "AGENT", "DELIVERY_ASSISTANT"],
+    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "DELIVERY_ASSISTANT"],
   },
   {
     title: "Livraisons",
@@ -97,7 +99,13 @@ const navItems = [
     title: "Commissions",
     href: "/commissions",
     icon: Banknote,
-    roles: ["ADMIN", "ACCOUNTANT", "AGENT"],
+    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT"],
+  },
+  {
+    title: "Comptabilité",
+    href: "/accounting",
+    icon: Calculator,
+    roles: ["ADMIN", "ACCOUNTANT", "LEADER"],
   },
   {
     title: "Paramètres",

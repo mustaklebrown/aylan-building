@@ -8,6 +8,7 @@ export async function seedTestAccountsAction() {
   const usersToCreate = [
     { email: "admin@aylangroup.com", name: "Directeur Admin", role: "ADMIN" },
     { email: "accountant@aylangroup.com", name: "Comptable Aylan", role: "ACCOUNTANT" },
+    { email: "leader@aylangroup.com", name: "Leader Aylan", role: "LEADER" },
     { email: "agent@aylangroup.com", name: "Commercial Aylan", role: "AGENT" },
     { email: "delivery@aylangroup.com", name: "Assistant de direction (Livraison)", role: "DELIVERY_ASSISTANT" },
   ];

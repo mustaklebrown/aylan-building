@@ -18,6 +18,11 @@ export default async function CommissionsPage() {
     redirect("/login");
   }
 
+  // Only ADMIN, ACCOUNTANT, LEADER and AGENT can see commissions (not Delivery)
+  if (session.user.role === "DELIVERY_ASSISTANT") {
+    redirect("/unauthorized");
+  }
+
   const user = session.user;
   const role = user.role || "AGENT";
 

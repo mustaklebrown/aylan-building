@@ -20,22 +20,60 @@ async function checkAuth() {
 async function checkAccountantOrAdmin() {
   const user = await checkAuth();
   const role = user.role || "AGENT";
-  if (role !== "ADMIN" && role !== "ACCOUNTANT") {
-    throw new Error("Accès refusé. Réservé aux administrateurs et comptables.");
+  if (role !== "ADMIN" && role !== "ACCOUNTANT" && role !== "LEADER") {
+    throw new Error("Accès refusé. Réservé aux administrateurs, comptables et leaders.");
   }
   return user;
 }
 
 export async function getProductsAction() {
-  await checkAuth();
+  const user = await checkAuth();
+  const role = user.role || "AGENT";
 
   try {
+    // Build filter based on role
+    let whereClause: any = {};
+    if (role === "LEADER") {
+      // Leaders see common products + their own products
+      whereClause = {
+        OR: [
+          { isCommon: true },
+          { leaderId: user.id },
+        ],
+      };
+    } else if (role === "AGENT") {
+      // Agents see common products + products of their leader
+      const currentAgent = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { leaderId: true },
+      });
+      if (currentAgent?.leaderId) {
+        whereClause = {
+          OR: [
+            { isCommon: true },
+            { leaderId: currentAgent.leaderId },
+          ],
+        };
+      } else {
+        // Agent without a leader: only common products
+        whereClause = { isCommon: true };
+      }
+    }
+    // ADMIN and ACCOUNTANT see everything (whereClause stays {})
+
     const products = await prisma.product.findMany({
+      where: whereClause,
       orderBy: { name: "asc" },
       include: {
         movements: {
           orderBy: { date: "desc" },
           take: 5,
+        },
+        leader: {
+          select: {
+            id: true,
+            name: true,
+          },
         },
       },
     });
@@ -66,6 +104,9 @@ export async function getProductsAction() {
       stockAvailable: p.stockAvailable,
       alertThreshold: p.alertThreshold,
       isAlert: p.stockAvailable <= p.alertThreshold,
+      isCommon: p.isCommon,
+      leaderId: p.leaderId,
+      leaderName: p.leader?.name || null,
       recentMovements: p.movements,
     }));
 
@@ -95,8 +136,28 @@ export async function createProductAction(data: {
   agentCommission: number;
   stockAvailable: number;
   alertThreshold: number;
+  isCommon?: boolean;
+  leaderId?: string;
 }) {
   const user = await checkAccountantOrAdmin();
+  const role = user.role || "AGENT";
+
+  // Determine product ownership
+  let isCommon = true;
+  let productLeaderId: string | null = null;
+
+  if (role === "LEADER") {
+    // Leaders always create products for themselves (not common)
+    isCommon = false;
+    productLeaderId = user.id;
+  } else if (role === "ADMIN") {
+    // Admin can choose
+    isCommon = data.isCommon !== undefined ? data.isCommon : true;
+    productLeaderId = data.leaderId || null;
+    if (productLeaderId) {
+      isCommon = false;
+    }
+  }
 
   try {
     // Check SKU uniqueness
@@ -120,6 +181,8 @@ export async function createProductAction(data: {
         agentCommission: data.agentCommission,
         stockAvailable: data.stockAvailable,
         alertThreshold: data.alertThreshold,
+        isCommon,
+        leaderId: productLeaderId,
       },
     });
 
@@ -143,7 +206,7 @@ export async function createProductAction(data: {
         action: "CREATE_PRODUCT",
         entity: "product",
         entityId: product.id,
-        details: `Création du produit ${product.name} (SKU: ${product.sku}, Stock initial: ${product.stockAvailable})`,
+        details: `Création du produit ${product.name} (SKU: ${product.sku}, Stock initial: ${product.stockAvailable}, ${isCommon ? "Commun" : `Spécifique leader ${productLeaderId}`})`,
       },
     });
 

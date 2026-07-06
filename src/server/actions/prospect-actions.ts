@@ -28,7 +28,14 @@ export async function getProspectsAction() {
   const role = user.role || "AGENT";
 
   try {
-    const where = role === "AGENT" ? { agentId: user.id } : {};
+    let where: any = {};
+    if (role === "AGENT") {
+      where = { agentId: user.id };
+    } else if (role === "LEADER") {
+      // Leaders see prospects from their agents
+      where = { agent: { leaderId: user.id } };
+    }
+    // ADMIN sees all
 
     const prospects = await prisma.prospect.findMany({
       where,

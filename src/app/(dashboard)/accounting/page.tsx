@@ -1,15 +1,15 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { getAgentsAction } from "@/server/actions/agent-actions";
-import { AgentsClientPage } from "./agents-client-page";
+import { getAccountingAction } from "@/server/actions/accounting-actions";
+import { AccountingClientPage } from "./accounting-client-page";
 
 export const metadata = {
-  title: "Gestion des Téléconseillers - AYLAN GROUP",
-  description: "Liste et suivi des KPI de l'équipe commerciale.",
+  title: "Comptabilité & Répartition - AYLAN GROUP",
+  description: "Suivi des gains, répartition entre leaders et comptabilité globale.",
 };
 
-export default async function AgentsPage() {
+export default async function AccountingPage() {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -19,18 +19,17 @@ export default async function AgentsPage() {
   }
 
   const user = session.user;
-  
-  // Only ADMIN, ACCOUNTANT, and LEADER can manage agents
   const role = user.role || "AGENT";
+
+  // Only ADMIN, ACCOUNTANT, and LEADER can access accounting
   if (role !== "ADMIN" && role !== "ACCOUNTANT" && role !== "LEADER") {
     redirect("/unauthorized");
   }
 
-  // Fetch agents data
-  const res = await getAgentsAction();
-  
-  if (!res.success || !res.agents) {
-    throw new Error(res.error || "Erreur lors de la récupération des agents.");
+  const res = await getAccountingAction();
+
+  if (!res.success || !res.data) {
+    throw new Error(res.error || "Erreur lors de la récupération des données comptables.");
   }
 
   const currentUser = {
@@ -41,8 +40,8 @@ export default async function AgentsPage() {
   };
 
   return (
-    <AgentsClientPage
-      initialAgents={res.agents}
+    <AccountingClientPage
+      data={res.data}
       currentUser={currentUser}
     />
   );

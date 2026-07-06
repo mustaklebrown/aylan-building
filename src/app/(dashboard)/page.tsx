@@ -21,11 +21,22 @@ export default async function DashboardPage() {
   const user = session.user;
   const role = user.role || "AGENT";
   const isAgent = role === "AGENT";
+  const isLeader = role === "LEADER";
 
   // Filters based on role
-  const salesFilter = isAgent ? { agentId: user.id } : {};
-  const prospectsFilter = isAgent ? { agentId: user.id } : {};
-  const commissionsFilter = isAgent ? { agentId: user.id } : {};
+  let salesFilter: any = {};
+  let prospectsFilter: any = {};
+  let commissionsFilter: any = {};
+
+  if (isAgent) {
+    salesFilter = { agentId: user.id };
+    prospectsFilter = { agentId: user.id };
+    commissionsFilter = { agentId: user.id };
+  } else if (isLeader) {
+    salesFilter = { agent: { leaderId: user.id } };
+    prospectsFilter = { agent: { leaderId: user.id } };
+    commissionsFilter = { agent: { leaderId: user.id } };
+  }
 
   // Fetch sales
   const sales = await prisma.sale.findMany({
@@ -63,20 +74,25 @@ export default async function DashboardPage() {
     },
   });
 
-  // Fetch agents (if ADMIN or ACCOUNTANT)
-  const agents = !isAgent
-    ? await prisma.user.findMany({
-        where: { role: "AGENT" },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          createdAt: true,
-        },
-        orderBy: { name: "asc" },
-      })
-    : [];
+  // Fetch agents (if ADMIN, ACCOUNTANT, or LEADER)
+  let agents: any[] = [];
+  if (!isAgent) {
+    const agentWhere: any = isLeader
+      ? { role: "AGENT", leaderId: user.id }
+      : { role: "AGENT" };
+
+    agents = await prisma.user.findMany({
+      where: agentWhere,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
+      orderBy: { name: "asc" },
+    });
+  }
 
   // Fetch products for stock alerts
   const products = await prisma.product.findMany({

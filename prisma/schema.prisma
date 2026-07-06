@@ -19,7 +19,12 @@ model User {
   accounts      Account[]
 
   // Custom fields
-  role String @default("AGENT") // ADMIN, ACCOUNTANT, AGENT
+  role String @default("AGENT") // ADMIN, ACCOUNTANT, LEADER, AGENT, DELIVERY_ASSISTANT
+
+  // Leader <-> Agent self-relation
+  leaderId String?
+  leader   User?   @relation("LeaderToAgents", fields: [leaderId], references: [id], onDelete: SetNull)
+  agents   User[]  @relation("LeaderToAgents")
 
   // Relations
   prospects     Prospect[]
@@ -27,6 +32,7 @@ model User {
   commissions   Commission[]
   notifications Notification[]
   auditLogs     AuditLog[]
+  ownedProducts Product[] @relation("LeaderToProducts")
 
   @@map("user")
 }
@@ -110,6 +116,11 @@ model Product {
   alertThreshold  Int      @default(5)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  // Product ownership: common (shared across all leaders) or specific to a leader
+  isCommon  Boolean  @default(true)
+  leaderId  String?
+  leader    User?    @relation("LeaderToProducts", fields: [leaderId], references: [id], onDelete: SetNull)
 
   movements StockMovement[]
   sales     Sale[]

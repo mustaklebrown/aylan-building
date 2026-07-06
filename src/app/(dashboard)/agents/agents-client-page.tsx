@@ -73,6 +73,8 @@ interface Agent {
   totalCommissions: number;
   totalRevenue: number;
   conversionRate: number;
+  leaderName: string | null;
+  leaderId: string | null;
 }
 
 interface AgentsClientPageProps {
@@ -109,6 +111,8 @@ export function AgentsClientPage({
   const [editForm, setEditForm] = useState({ name: "", email: "", role: "AGENT" });
 
   const isAdmin = currentUser.role === "ADMIN";
+  const isLeader = currentUser.role === "LEADER";
+  const canManage = isAdmin || isLeader;
 
   // Filter and sort agents
   const filteredAgents = agents
@@ -162,6 +166,8 @@ export function AgentsClientPage({
           totalCommissions: 0,
           totalRevenue: 0,
           conversionRate: 0,
+          leaderName: isLeader ? currentUser.name : null,
+          leaderId: isLeader ? currentUser.id : null,
         };
         setAgents([newAgent, ...agents]);
         
@@ -263,7 +269,7 @@ export function AgentsClientPage({
             Supervisez les performances, gérez les profils et suivez les conversions des commerciaux de votre équipe.
           </p>
         </div>
-        {isAdmin && (
+        {canManage && (
           <Button
             onClick={() => setIsAddOpen(true)}
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-md shadow-indigo-600/20"
@@ -389,7 +395,7 @@ export function AgentsClientPage({
                         </CardDescription>
                       </div>
                     </div>
-                    {isAdmin && (
+                    {canManage && (
                       <DropdownMenu>
                         <DropdownMenuTrigger render={<Button variant="ghost" className="h-8 w-8 p-0" />}>
                           <MoreVertical className="h-4 w-4" />

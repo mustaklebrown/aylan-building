@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 
-// Helper to check if current user is admin or accountant
+// Helper to check if current user is admin, accountant, or leader
 async function checkAuth() {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -16,7 +16,7 @@ async function checkAuth() {
   }
 
   const role = session.user.role || "AGENT";
-  if (role !== "ADMIN" && role !== "ACCOUNTANT") {
+  if (role !== "ADMIN" && role !== "ACCOUNTANT" && role !== "LEADER") {
     throw new Error("Non autorisé");
   }
 
@@ -24,11 +24,17 @@ async function checkAuth() {
 }
 
 export async function getAgentsAction() {
-  await checkAuth();
+  const user = await checkAuth();
+  const role = user.role || "AGENT";
 
   try {
+    // Leaders see only their own agents
+    const whereClause = role === "LEADER"
+      ? { role: "AGENT", leaderId: user.id }
+      : { role: "AGENT" };
+
     const agents = await prisma.user.findMany({
-      where: { role: "AGENT" },
+      where: whereClause,
       orderBy: { createdAt: "desc" },
       include: {
         _count: {
@@ -51,6 +57,12 @@ export async function getAgentsAction() {
         commissions: {
           select: {
             amount: true,
+          },
+        },
+        leader: {
+          select: {
+            id: true,
+            name: true,
           },
         },
       },
@@ -86,6 +98,8 @@ export async function getAgentsAction() {
         totalCommissions,
         totalRevenue,
         conversionRate: parseFloat(conversionRate.toFixed(1)),
+        leaderName: agent.leader?.name || null,
+        leaderId: agent.leaderId || null,
       };
     });
 
@@ -276,8 +290,10 @@ export async function createAgentAction(data: {
   name: string;
   email: string;
   password?: string;
+  leaderId?: string;
 }) {
-  await checkAuth();
+  const user = await checkAuth();
+  const role = user.role || "AGENT";
 
   const { name, email } = data;
 
@@ -288,6 +304,16 @@ export async function createAgentAction(data: {
     generatedPassword += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   const passwordToUse = data.password && data.password.trim() !== "" ? data.password : generatedPassword;
+
+  // Determine which leader to assign the agent to
+  let targetLeaderId: string | null = null;
+  if (role === "LEADER") {
+    // Leaders always assign agents to themselves
+    targetLeaderId = user.id;
+  } else if (role === "ADMIN" && data.leaderId) {
+    // Admin can specify a leader
+    targetLeaderId = data.leaderId;
+  }
 
   try {
     // Check if user already exists
@@ -310,10 +336,13 @@ export async function createAgentAction(data: {
     });
 
     if (created && created.user) {
-      // Force role to AGENT in DB
+      // Force role to AGENT and assign leader in DB
       await prisma.user.update({
         where: { id: created.user.id },
-        data: { role: "AGENT" },
+        data: {
+          role: "AGENT",
+          leaderId: targetLeaderId,
+        },
       });
 
       // Audit Log
@@ -327,7 +356,7 @@ export async function createAgentAction(data: {
             action: "CREATE_AGENT",
             entity: "user",
             entityId: created.user.id,
-            details: `Création de l'agent ${name} (${email})`,
+            details: `Création de l'agent ${name} (${email})${targetLeaderId ? ` assigné au leader ${targetLeaderId}` : ""}`,
           },
         });
       }
@@ -349,9 +378,19 @@ export async function updateAgentAction(
     name: string;
     email: string;
     role: string;
+    leaderId?: string | null;
   }
 ) {
-  await checkAuth();
+  const user = await checkAuth();
+  const currentRole = user.role || "AGENT";
+
+  // Leaders can only update their own agents
+  if (currentRole === "LEADER") {
+    const agent = await prisma.user.findUnique({ where: { id: agentId } });
+    if (!agent || agent.leaderId !== user.id) {
+      return { success: false, error: "Vous ne pouvez modifier que vos propres agents." };
+    }
+  }
 
   const { name, email, role } = data;
 
@@ -368,13 +407,16 @@ export async function updateAgentAction(
       return { success: false, error: "Cet email est déjà utilisé par un autre utilisateur." };
     }
 
+    const updateData: any = { name, email, role };
+
+    // Only admin can reassign leader
+    if (currentRole === "ADMIN" && data.leaderId !== undefined) {
+      updateData.leaderId = data.leaderId || null;
+    }
+
     const updated = await prisma.user.update({
       where: { id: agentId },
-      data: {
-        name,
-        email,
-        role,
-      },
+      data: updateData,
     });
 
     // Audit Log
