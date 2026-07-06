@@ -140,6 +140,7 @@ export function DashboardClientPage({
   }, []);
 
   const isAgent = user.role === "AGENT";
+  const isLeader = user.role === "LEADER";
 
   // Filter datasets based on selected timeframe
   const filteredSales = filterByTimeframe(sales, timeframe);
@@ -241,7 +242,7 @@ export function DashboardClientPage({
               {salesCount}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {isAgent ? "Vos transactions conclues" : "Nombre total de ventes"}
+              {isAgent ? "Vos transactions conclues" : isLeader ? "Ventes de votre équipe" : "Nombre total de ventes"}
             </p>
           </CardContent>
         </Card>
@@ -387,6 +388,7 @@ export function DashboardClientPage({
                   <TableRow>
                     <TableHead className="font-bold">Agent</TableHead>
                     <TableHead className="text-center font-bold">Prospects</TableHead>
+                    <TableHead className="text-center font-bold">Ventes (Transactions)</TableHead>
                     <TableHead className="text-center font-bold">Produits Vendus</TableHead>
                     <TableHead className="text-right font-bold">Chiffre d'Affaires</TableHead>
                     <TableHead className="text-right font-bold">Commissions Générées</TableHead>
@@ -396,7 +398,7 @@ export function DashboardClientPage({
                 <TableBody>
                   {agents.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-slate-400 text-sm">
+                      <TableCell colSpan={7} className="text-center py-8 text-slate-400 text-sm">
                         Aucun agent commercial enregistré.
                       </TableCell>
                     </TableRow>
@@ -415,6 +417,7 @@ export function DashboardClientPage({
                       const agentRevenue = agentSales.reduce((sum, s) => sum + s.price * s.quantity, 0);
                       const agentCommissionsSum = agentCommissions.reduce((sum, c) => sum + c.amount, 0);
                       const agentProductsSold = agentSales.reduce((sum, s) => sum + s.quantity, 0);
+                      const agentSalesCount = agentSales.length;
 
                       return (
                         <TableRow key={agent.id} className="hover:bg-slate-50/30">
@@ -425,6 +428,7 @@ export function DashboardClientPage({
                             </div>
                           </TableCell>
                           <TableCell className="text-center font-bold text-slate-700 dark:text-slate-300">{totalP}</TableCell>
+                          <TableCell className="text-center font-bold text-slate-700 dark:text-slate-300">{agentSalesCount}</TableCell>
                           <TableCell className="text-center font-semibold text-slate-700 dark:text-slate-300">{agentProductsSold}</TableCell>
                           <TableCell className="text-right font-bold text-indigo-600 dark:text-indigo-400">{formatCurrency(agentRevenue)}</TableCell>
                           <TableCell className="text-right font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(agentCommissionsSum)}</TableCell>
