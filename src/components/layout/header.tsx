@@ -111,7 +111,7 @@ const navItems = [
     title: "Paramètres",
     href: "/settings",
     icon: Settings,
-    roles: ["ADMIN"],
+    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "DELIVERY_ASSISTANT"],
   },
 ];
 
@@ -309,8 +309,8 @@ export function Header({ user }: HeaderProps) {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem >
-              <Link href="/profile" className="cursor-pointer w-full">
-                Profil
+              <Link href="/settings" className="cursor-pointer w-full">
+                Profil & Paramètres
               </Link>
             </DropdownMenuItem>
             {user?.role === "ADMIN" && (

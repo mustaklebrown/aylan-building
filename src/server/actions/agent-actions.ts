@@ -291,9 +291,10 @@ export async function createAgentAction(data: {
   email: string;
   password?: string;
   leaderId?: string;
+  role?: string;
 }) {
   const user = await checkAuth();
-  const role = user.role || "AGENT";
+  const currentRole = user.role || "AGENT";
 
   const { name, email } = data;
 
@@ -305,14 +306,22 @@ export async function createAgentAction(data: {
   }
   const passwordToUse = data.password && data.password.trim() !== "" ? data.password : generatedPassword;
 
+  // Determine role of the user to be created
+  let targetRole = "AGENT";
+  if (currentRole === "ADMIN" && data.role) {
+    targetRole = data.role;
+  }
+
   // Determine which leader to assign the agent to
   let targetLeaderId: string | null = null;
-  if (role === "LEADER") {
-    // Leaders always assign agents to themselves
-    targetLeaderId = user.id;
-  } else if (role === "ADMIN" && data.leaderId) {
-    // Admin can specify a leader
-    targetLeaderId = data.leaderId;
+  if (targetRole === "AGENT") {
+    if (currentRole === "LEADER") {
+      // Leaders always assign agents to themselves
+      targetLeaderId = user.id;
+    } else if (currentRole === "ADMIN" && data.leaderId) {
+      // Admin can specify a leader
+      targetLeaderId = data.leaderId;
+    }
   }
 
   try {
@@ -336,11 +345,11 @@ export async function createAgentAction(data: {
     });
 
     if (created && created.user) {
-      // Force role to AGENT and assign leader in DB
+      // Set role and assign leader in DB
       await prisma.user.update({
         where: { id: created.user.id },
         data: {
-          role: "AGENT",
+          role: targetRole,
           leaderId: targetLeaderId,
         },
       });
@@ -353,15 +362,16 @@ export async function createAgentAction(data: {
         await prisma.auditLog.create({
           data: {
             userId: currentUser.user.id,
-            action: "CREATE_AGENT",
+            action: "CREATE_USER",
             entity: "user",
             entityId: created.user.id,
-            details: `Création de l'agent ${name} (${email})${targetLeaderId ? ` assigné au leader ${targetLeaderId}` : ""}`,
+            details: `Création de l'utilisateur ${name} (${email}, rôle: ${targetRole})${targetLeaderId ? ` assigné au leader ${targetLeaderId}` : ""}`,
           },
         });
       }
 
       revalidatePath("/agents");
+      revalidatePath("/settings");
       return { success: true, agentId: created.user.id, generatedPassword: passwordToUse };
     }
 
@@ -436,10 +446,135 @@ export async function updateAgentAction(
     }
 
     revalidatePath("/agents");
+    revalidatePath("/settings");
     revalidatePath(`/agents/${agentId}`);
     return { success: true, agent: updated };
   } catch (error: any) {
     console.error("Error updating agent:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Fetch all users (for Admin parameters page)
+ */
+export async function getUsersAction() {
+  const user = await checkAuth();
+  if (user.role !== "ADMIN") {
+    throw new Error("Accès refusé. Réservé aux administrateurs.");
+  }
+
+  try {
+    const users = await prisma.user.findMany({
+      orderBy: { name: "asc" },
+      include: {
+        leader: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return {
+      success: true,
+      users: users.map((u) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role || "AGENT",
+        createdAt: u.createdAt,
+        leaderId: u.leaderId || null,
+        leaderName: u.leader?.name || null,
+      })),
+    };
+  } catch (error: any) {
+    console.error("Error fetching users:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Delete any user (for Admin parameters page)
+ */
+export async function deleteUserAction(userId: string) {
+  const user = await checkAuth();
+  if (user.role !== "ADMIN") {
+    throw new Error("Accès refusé. Réservé aux administrateurs.");
+  }
+
+  // Prevent self-deletion
+  if (userId === user.id) {
+    return { success: false, error: "Vous ne pouvez pas supprimer votre propre compte." };
+  }
+
+  try {
+    // Check if user has related prospects, sales or commissions
+    const userRelations = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        _count: {
+          select: {
+            prospects: true,
+            sales: true,
+            commissions: true,
+            agents: true, // if leader
+            ownedProducts: true // if leader
+          },
+        },
+      },
+    });
+
+    if (!userRelations) {
+      return { success: false, error: "Utilisateur introuvable." };
+    }
+
+    const counts = userRelations._count;
+    if (counts.prospects > 0 || counts.sales > 0 || counts.commissions > 0) {
+      return {
+        success: false,
+        error: "Cet utilisateur possède des prospects, des ventes ou des commissions associées et ne peut pas être supprimé pour préserver l'historique.",
+      };
+    }
+
+    if (counts.agents > 0) {
+      return {
+        success: false,
+        error: "Ce leader gère actuellement des téléconseillers. Veuillez réaffecter ses agents avant de le supprimer.",
+      };
+    }
+
+    if (counts.ownedProducts > 0) {
+      return {
+        success: false,
+        error: "Ce leader possède des produits spécifiques. Veuillez réaffecter ou supprimer ses produits avant de le supprimer.",
+      };
+    }
+
+    // Delete session and account details first
+    await prisma.session.deleteMany({ where: { userId } });
+    await prisma.account.deleteMany({ where: { userId } });
+
+    // Delete user
+    await prisma.user.delete({ where: { id: userId } });
+
+    // Audit Log
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "DELETE_USER",
+        entity: "user",
+        entityId: userId,
+        details: `Suppression de l'utilisateur ${userRelations.name} (${userRelations.email})`,
+      },
+    });
+
+    revalidatePath("/settings");
+    revalidatePath("/agents");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error deleting user:", error);
     return { success: false, error: error.message };
   }
 }

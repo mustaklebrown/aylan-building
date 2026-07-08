@@ -75,7 +75,7 @@ const navItems = [
     title: "Paramètres",
     href: "/settings",
     icon: Settings,
-    roles: ["ADMIN"],
+    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "DELIVERY_ASSISTANT"],
   },
 ];
 
