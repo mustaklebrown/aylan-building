@@ -109,6 +109,7 @@ export function SettingsClientPage({
   currentUser,
 }: SettingsClientPageProps) {
   const [users, setUsers] = useState<SystemUser[]>(initialUsers);
+  const [leadersList, setLeadersList] = useState<Leader[]>(leaders);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
 
@@ -220,7 +221,7 @@ export function SettingsClientPage({
         setIsSuccessOpen(true);
 
         // Append user to state
-        const targetLeader = leaders.find((l) => l.id === addForm.leaderId);
+        const targetLeader = leadersList.find((l) => l.id === addForm.leaderId);
         const newUser: SystemUser = {
           id: res.agentId,
           name: addForm.name,
@@ -231,6 +232,12 @@ export function SettingsClientPage({
           leaderName: targetLeader ? targetLeader.name : null,
         };
         setUsers([newUser, ...users]);
+
+        // If the new user is a LEADER, add them to the local leaders state
+        if (addForm.role === "LEADER") {
+          setLeadersList([...leadersList, { id: res.agentId, name: addForm.name, email: addForm.email }]);
+        }
+
         setIsAddOpen(false);
 
         // Reset
@@ -267,7 +274,7 @@ export function SettingsClientPage({
       if (res.success && res.agent) {
         toast.success("Profil mis à jour !");
 
-        const targetLeader = leaders.find((l) => l.id === editForm.leaderId);
+        const targetLeader = leadersList.find((l) => l.id === editForm.leaderId);
         setUsers(
           users.map((u) =>
             u.id === selectedUser.id
@@ -282,6 +289,29 @@ export function SettingsClientPage({
               : u
           )
         );
+
+        // If role is LEADER, update or add to leadersList state
+        if (editForm.role === "LEADER") {
+          const alreadyExists = leadersList.some((l) => l.id === selectedUser.id);
+          if (alreadyExists) {
+            setLeadersList(
+              leadersList.map((l) =>
+                l.id === selectedUser.id
+                  ? { ...l, name: editForm.name, email: editForm.email }
+                  : l
+              )
+            );
+          } else {
+            setLeadersList([
+              ...leadersList,
+              { id: selectedUser.id, name: editForm.name, email: editForm.email },
+            ]);
+          }
+        } else if (selectedUser.role === "LEADER") {
+          // If the role was changed from LEADER to something else, remove from leadersList
+          setLeadersList(leadersList.filter((l) => l.id !== selectedUser.id));
+        }
+
         setIsEditOpen(false);
         setSelectedUser(null);
       } else {
@@ -303,6 +333,12 @@ export function SettingsClientPage({
       if (res.success) {
         toast.success("Utilisateur supprimé.");
         setUsers(users.filter((u) => u.id !== selectedUser.id));
+        
+        // If deleted user was a LEADER, remove from leadersList state
+        if (selectedUser.role === "LEADER") {
+          setLeadersList(leadersList.filter((l) => l.id !== selectedUser.id));
+        }
+
         setIsDeleteOpen(false);
         setSelectedUser(null);
       } else {
@@ -801,7 +837,7 @@ export function SettingsClientPage({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Aucun leader</SelectItem>
-                    {leaders.map((l) => (
+                    {leadersList.map((l) => (
                       <SelectItem key={l.id} value={l.id}>
                         {l.name}
                       </SelectItem>
@@ -949,7 +985,7 @@ export function SettingsClientPage({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Aucun leader</SelectItem>
-                    {leaders.map((l) => (
+                    {leadersList.map((l) => (
                       <SelectItem key={l.id} value={l.id}>
                         {l.name}
                       </SelectItem>
