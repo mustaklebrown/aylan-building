@@ -20,9 +20,9 @@ export default async function AgentsPage() {
 
   const user = session.user;
   
-  // Only ADMIN, ACCOUNTANT, and LEADER can manage agents
+  // Only ADMIN, ACCOUNTANT, LEADER, and STOCKISTE can view agents/sellers
   const role = user.role || "AGENT";
-  if (role !== "ADMIN" && role !== "ACCOUNTANT" && role !== "LEADER") {
+  if (role !== "ADMIN" && role !== "ACCOUNTANT" && role !== "LEADER" && role !== "STOCKISTE") {
     redirect("/unauthorized");
   }
 

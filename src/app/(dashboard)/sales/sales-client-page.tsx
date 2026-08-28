@@ -57,6 +57,14 @@ import { Timeframe, filterByTimeframe } from "@/lib/date-utils";
 import { formatCurrency, formatDate } from "@/lib/format-utils";
 import { exportToCSV } from "@/lib/export-utils";
 
+interface CommissionItem {
+  id: string;
+  amount: number;
+  status: string;
+  role: string;
+  agentId: string;
+}
+
 interface Sale {
   id: string;
   date: Date;
@@ -68,9 +76,20 @@ interface Sale {
   totalAmount: number;
   agentId: string;
   agentName: string;
+  sellerRole?: string;
+  stockisteId?: string | null;
+  stockisteName?: string | null;
+  leaderId?: string | null;
+  leaderName?: string | null;
+  driverId?: string | null;
+  driverName?: string | null;
   status: string;
-  commissionAmount: number;
-  commissionStatus: string;
+  sellerCommission?: number;
+  leaderCommission?: number;
+  stockisteRevenue?: number;
+  commissions?: CommissionItem[];
+  commissionAmount?: number;
+  commissionStatus?: string;
   shippingType?: string;
   shippingCity?: string | null;
   shippingAddress?: string | null;
@@ -470,13 +489,13 @@ export function SalesClientPage({
                 <TableRow>
                   <TableHead>Date</TableHead>
                   <TableHead>Client</TableHead>
-                  <TableHead>Produit</TableHead>
+                  <TableHead>Produit & Stockiste</TableHead>
                   <TableHead className="text-center">Quantité</TableHead>
                   <TableHead className="text-right">Prix U.</TableHead>
                   <TableHead className="text-right">Montant Total</TableHead>
-                  <TableHead>Téléconseiller</TableHead>
-                  <TableHead>Statut de Livraison</TableHead>
-                  <TableHead className="text-right">Commission</TableHead>
+                  <TableHead>Vendeur</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead className="text-right">Commissions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -505,7 +524,14 @@ export function SalesClientPage({
                           </div>
                         )}
                       </TableCell>
-                      <TableCell className="text-xs font-semibold">{s.productName}</TableCell>
+                      <TableCell className="text-xs">
+                        <div className="font-semibold">{s.productName}</div>
+                        {s.stockisteName ? (
+                          <div className="text-[10px] text-teal-600 dark:text-teal-400 font-medium flex items-center gap-1 mt-0.5">
+                            <span>📦 {s.stockisteName}</span>
+                          </div>
+                        ) : null}
+                      </TableCell>
                       <TableCell className="text-center font-bold">{s.quantity}</TableCell>
                       <TableCell className="text-right text-slate-500">{s.price} KMF</TableCell>
                       <TableCell className="text-right font-bold text-indigo-600">
@@ -516,7 +542,22 @@ export function SalesClientPage({
                           </div>
                         )}
                       </TableCell>
-                      <TableCell className="text-xs font-medium">{s.agentName}</TableCell>
+                      <TableCell className="text-xs">
+                        <div className="font-medium flex items-center gap-1">
+                          <span>{s.agentName}</span>
+                        </div>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {s.sellerRole === "ECOMMERCANT" ? (
+                            <span className="bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-950/50 dark:text-fuchsia-300 border border-fuchsia-200/60 dark:border-fuchsia-800/40 text-[9px] px-1.5 py-0.2 rounded-full font-bold">
+                              E-commerçant
+                            </span>
+                          ) : (
+                            <span className="bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/40 text-[9px] px-1.5 py-0.2 rounded-full font-bold">
+                              Téléconseiller {s.leaderName ? `(${s.leaderName})` : ""}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         {canManageDelivery ? (
                           <Select
@@ -543,8 +584,14 @@ export function SalesClientPage({
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex flex-col items-end">
-                          <span className="font-semibold text-emerald-600">{s.commissionAmount} KMF</span>
-                          <span className="text-[10px] text-slate-400 font-mono lowercase">({s.commissionStatus})</span>
+                          <span className="font-semibold text-emerald-600">
+                            {formatCurrency(s.sellerCommission ?? s.commissionAmount ?? 0)}
+                          </span>
+                          {(s.leaderCommission ?? 0) > 0 && (
+                            <span className="text-[10px] text-amber-600 font-medium">
+                              +{formatCurrency(s.leaderCommission!)} (Leader)
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

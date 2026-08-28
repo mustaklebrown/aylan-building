@@ -39,14 +39,24 @@ import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
+import { useEffect, useCallback } from "react";
+import {
+  getUserNotificationsAction,
+  markNotificationAsReadAction,
+  markAllNotificationsAsReadAction,
+} from "@/server/actions/notification-actions";
+import { Check, CheckCheck } from "lucide-react";
+
 const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   ADMIN: { label: "Administrateur", color: "#F3C442", bg: "rgba(243,196,66,0.12)" },
   ACCOUNTANT: { label: "Comptable", color: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
   LEADER: { label: "Leader", color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
-  AGENT: { label: "Agent Commercial", color: "#34d399", bg: "rgba(52,211,153,0.12)" },
+  AGENT: { label: "Téléconseiller", color: "#34d399", bg: "rgba(52,211,153,0.12)" },
+  ECOMMERCANT: { label: "E-commerçant", color: "#ec4899", bg: "rgba(236,72,153,0.12)" },
+  STOCKISTE: { label: "Stockiste", color: "#06b6d4", bg: "rgba(6,182,212,0.12)" },
+  DELIVERY: { label: "Livreur", color: "#34d399", bg: "rgba(52,211,153,0.12)" },
   DELIVERY_ASSISTANT: { label: "Livraisons", color: "#f97316", bg: "rgba(249,115,22,0.12)" },
 };
-
 
 interface HeaderProps {
   user: {
@@ -63,43 +73,43 @@ const navItems = [
     title: "Tableau de bord",
     href: "/",
     icon: LayoutDashboard,
-    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "DELIVERY_ASSISTANT"],
+    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "ECOMMERCANT", "STOCKISTE", "DELIVERY_ASSISTANT"],
   },
   {
     title: "CRM / Prospects",
     href: "/crm",
     icon: Users,
-    roles: ["ADMIN", "LEADER", "AGENT"],
+    roles: ["ADMIN", "LEADER", "AGENT", "ECOMMERCANT"],
   },
   {
-    title: "Téléconseillers",
+    title: "Vendeurs & Équipes",
     href: "/agents",
     icon: Contact,
-    roles: ["ADMIN", "ACCOUNTANT", "LEADER"],
+    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "STOCKISTE"],
   },
   {
     title: "Produits & Stock",
     href: "/products",
     icon: Package,
-    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "DELIVERY_ASSISTANT"],
+    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "ECOMMERCANT", "STOCKISTE", "DELIVERY_ASSISTANT"],
   },
   {
     title: "Ventes",
     href: "/sales",
     icon: ShoppingCart,
-    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "DELIVERY_ASSISTANT"],
+    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "ECOMMERCANT", "STOCKISTE", "DELIVERY_ASSISTANT"],
   },
   {
     title: "Livraisons",
     href: "/deliveries",
     icon: Truck,
-    roles: ["ADMIN", "ACCOUNTANT", "DELIVERY_ASSISTANT"],
+    roles: ["ADMIN", "ACCOUNTANT", "DELIVERY_ASSISTANT", "DELIVERY"],
   },
   {
     title: "Commissions",
     href: "/commissions",
     icon: Banknote,
-    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT"],
+    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "ECOMMERCANT", "STOCKISTE"],
   },
   {
     title: "Comptabilité",
@@ -111,7 +121,7 @@ const navItems = [
     title: "Paramètres",
     href: "/settings",
     icon: Settings,
-    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "DELIVERY_ASSISTANT"],
+    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "ECOMMERCANT", "STOCKISTE", "DELIVERY_ASSISTANT"],
   },
 ];
 
@@ -119,6 +129,49 @@ export function Header({ user }: HeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await getUserNotificationsAction();
+      if (res.success) {
+        setNotifications(res.notifications);
+        setUnreadCount(res.unreadCount);
+      }
+    } catch (e) {
+      console.error("Error loading notifications:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 12000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllNotificationsAsReadAction();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setUnreadCount(0);
+      toast.success("Toutes les notifications sont marquées comme lues");
+    } catch (e) {
+      toast.error("Erreur de mise à jour");
+    }
+  };
+
+  const handleMarkOneRead = async (id: string) => {
+    try {
+      await markNotificationAsReadAction(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      );
+      setUnreadCount((c) => Math.max(0, c - 1));
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -278,12 +331,80 @@ export function Header({ user }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-3 md:gap-4">
-        {/* Notifications Button */}
-        <Button variant="ghost" size="icon" className="relative h-9 w-9">
-          <Bell className="h-5 w-5" />
-          <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-red-600" />
-          <span className="sr-only">Notifications</span>
-        </Button>
+        {/* Notifications Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="relative h-9 w-9" />}>
+            <Bell className="h-5 w-5 text-slate-700 dark:text-slate-200" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-extrabold text-white animate-pulse">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+            <span className="sr-only">Notifications</span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-80 md:w-96 p-0 overflow-hidden shadow-xl border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between px-4 py-3 bg-slate-900 text-white">
+              <div className="flex items-center gap-2">
+                <Bell className="h-4 w-4 text-indigo-400" />
+                <span className="font-bold text-sm">Notifications</span>
+                {unreadCount > 0 && (
+                  <span className="bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    {unreadCount} nouvelle(s)
+                  </span>
+                )}
+              </div>
+              {unreadCount > 0 && (
+                <button
+                  onClick={handleMarkAllRead}
+                  className="text-[11px] text-indigo-300 hover:text-white font-medium flex items-center gap-1 transition-colors"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" /> Tout lire
+                </button>
+              )}
+            </div>
+
+            <div className="max-h-[320px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+              {notifications.length === 0 ? (
+                <div className="p-6 text-center text-slate-400 text-xs">
+                  <Bell className="h-6 w-6 mx-auto text-slate-300 mb-2 opacity-50" />
+                  Aucune notification pour le moment.
+                </div>
+              ) : (
+                notifications.map((n) => (
+                  <div
+                    key={n.id}
+                    onClick={() => {
+                      if (!n.read) handleMarkOneRead(n.id);
+                      if (user.role === "DELIVERY" || user.role === "DELIVERY_ASSISTANT") {
+                        router.push("/deliveries");
+                      }
+                    }}
+                    className={`p-3.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors flex items-start justify-between gap-3 ${
+                      !n.read ? "bg-indigo-50/40 dark:bg-indigo-950/20" : ""
+                    }`}
+                  >
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                          {n.title}
+                        </span>
+                        {!n.read && (
+                          <span className="h-2 w-2 rounded-full bg-indigo-600"></span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 leading-snug">
+                        {n.message}
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-mono">
+                        {new Date(n.createdAt).toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* User Dropdown */}
         <DropdownMenu>

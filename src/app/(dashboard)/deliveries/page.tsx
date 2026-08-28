@@ -21,13 +21,31 @@ export default async function DeliveriesPage() {
   const user = session.user;
   const role = user.role || "AGENT";
 
-  // Only Admin, Accountant, and Delivery Assistant can access this page
-  if (role !== "ADMIN" && role !== "ACCOUNTANT" && role !== "DELIVERY_ASSISTANT") {
+  // Only Admin, Accountant, Delivery Assistant, and Delivery Drivers can access this page
+  if (role !== "ADMIN" && role !== "ACCOUNTANT" && role !== "DELIVERY_ASSISTANT" && role !== "DELIVERY") {
     redirect("/unauthorized");
+  }
+
+  // Fetch dbUser to get current driver availability status
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { isAvailable: true },
+  });
+
+  // Where clause based on role
+  let whereClause: any = {};
+  if (role === "DELIVERY") {
+    whereClause = {
+      OR: [
+        { driverId: user.id },
+        { shippingType: "DELIVERY", status: "PENDING", driverId: null },
+      ],
+    };
   }
 
   // Fetch sales list
   const sales = await prisma.sale.findMany({
+    where: whereClause,
     orderBy: { date: "desc" },
     include: {
       product: {
@@ -38,6 +56,12 @@ export default async function DeliveriesPage() {
       },
       agent: {
         select: {
+          name: true,
+        },
+      },
+      driver: {
+        select: {
+          id: true,
           name: true,
         },
       },
@@ -67,6 +91,8 @@ export default async function DeliveriesPage() {
     shippingCity: sale.shippingCity,
     shippingAddress: sale.shippingAddress,
     shippingFee: sale.shippingFee,
+    driverId: sale.driverId,
+    driverName: sale.driver?.name || null,
   }));
 
   const currentUser = {
@@ -74,6 +100,7 @@ export default async function DeliveriesPage() {
     name: user.name,
     email: user.email,
     role: role,
+    isAvailable: dbUser?.isAvailable ?? true,
   };
 
   return (

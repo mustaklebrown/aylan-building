@@ -11,6 +11,8 @@ export async function seedTestAccountsAction() {
     { email: "leader@aylangroup.com", name: "Leader Aylan", role: "LEADER" },
     { email: "agent@aylangroup.com", name: "Commercial Aylan", role: "AGENT" },
     { email: "delivery@aylangroup.com", name: "Assistant de direction (Livraison)", role: "DELIVERY_ASSISTANT" },
+    { email: "driver@aylangroup.com", name: "Livreur Principal", role: "DELIVERY" },
+    { email: "driver2@aylangroup.com", name: "Livreur Secondaire", role: "DELIVERY" },
   ];
 
   const results = [];

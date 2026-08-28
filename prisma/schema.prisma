@@ -19,20 +19,34 @@ model User {
   accounts      Account[]
 
   // Custom fields
-  role String @default("AGENT") // ADMIN, ACCOUNTANT, LEADER, AGENT, DELIVERY_ASSISTANT
+  role        String  @default("AGENT") // ADMIN, ACCOUNTANT, LEADER, AGENT, ECOMMERCANT, STOCKISTE, DELIVERY_ASSISTANT, DELIVERY
+  // Driver availability flag
+  isAvailable Boolean @default(false)
 
-  // Leader <-> Agent self-relation
+  // Leader <-> Agent self-relation (Téléconseiller -> Leader)
   leaderId String?
   leader   User?   @relation("LeaderToAgents", fields: [leaderId], references: [id], onDelete: SetNull)
   agents   User[]  @relation("LeaderToAgents")
 
   // Relations
   prospects     Prospect[]
-  sales         Sale[]
+  sales         Sale[]         @relation("AgentToSales")
+  userSales     Sale[]         @relation("UserToSales")
   commissions   Commission[]
   notifications Notification[]
   auditLogs     AuditLog[]
-  ownedProducts Product[] @relation("LeaderToProducts")
+  ownedProducts Product[]      @relation("LeaderToProducts")
+
+  // Stockiste relations
+  stockisteProducts Product[] @relation("StockisteToProducts")
+  stockisteSales    Sale[]    @relation("StockisteToSales")
+  leaderSales       Sale[]    @relation("LeaderToSales")
+
+  // Product assignments (vendor access)
+  productAssignments ProductAssignment[]
+
+  // Deliveries assigned when user is a driver
+  assignedDeliveries Sale[] @relation("DriverToSales")
 
   @@map("user")
 }
@@ -100,7 +114,7 @@ model Prospect {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  sales             Sale[]
+  sales Sale[]
 }
 
 model Product {
@@ -111,26 +125,52 @@ model Product {
   description     String?
   purchasePrice   Float
   salePrice       Float
-  agentCommission Float
+  agentCommission Float    @default(0) // Commission Téléconseiller
+  ecommercantCommission Float @default(0) // Commission E-commerçant indépendant
+  leaderCommission      Float @default(0) // Commission Leader d'équipe
   stockAvailable  Int      @default(0)
   alertThreshold  Int      @default(5)
+  isActive        Boolean  @default(true) // Statut activé / désactivé par le stockiste
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  // Product ownership: common (shared across all leaders) or specific to a leader
-  isCommon  Boolean  @default(true)
-  leaderId  String?
-  leader    User?    @relation("LeaderToProducts", fields: [leaderId], references: [id], onDelete: SetNull)
+  // Stockiste propriétaire du produit
+  stockisteId String?
+  stockiste   User?   @relation("StockisteToProducts", fields: [stockisteId], references: [id], onDelete: SetNull)
 
-  movements StockMovement[]
-  sales     Sale[]
+  // Product ownership legacy / leader specific
+  isCommon Boolean @default(true)
+  leaderId String?
+  leader   User?   @relation("LeaderToProducts", fields: [leaderId], references: [id], onDelete: SetNull)
+
+  // Accessibility rules
+  allowAllEcommercants Boolean @default(true)
+  allowAllLeaders      Boolean @default(true)
+
+  assignments ProductAssignment[]
+  movements   StockMovement[]
+  sales       Sale[]
+}
+
+model ProductAssignment {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  allowed   Boolean  @default(true)
+  customAgentCommission       Float?
+  customEcommercantCommission Float?
+  createdAt DateTime @default(now())
+
+  @@unique([productId, userId])
 }
 
 model StockMovement {
   id        String   @id @default(cuid())
   productId String
   product   Product  @relation(fields: [productId], references: [id])
-  type      String // IN, OUT_SALE, OUT_RETURN, OUT_LOSS, OUT_DAMAGE
+  type      String // IN, OUT_SALE, OUT_RETURN, OUT_LOSS, OUT_DAMAGE, CORRECTION
   quantity  Int
   cost      Float?
   supplier  String?
@@ -138,39 +178,59 @@ model StockMovement {
 }
 
 model Sale {
-  id              String   @id @default(cuid())
-  productId       String
-  product         Product  @relation(fields: [productId], references: [id])
-  quantity        Int
-  price           Float
-  customerName    String
-  agentId         String
-  agent           User     @relation(fields: [agentId], references: [id])
-  status          String   @default("PENDING") // PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED
-  date            DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id           String   @id @default(cuid())
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id])
+  quantity     Int
+  price        Float
+  customerName String
+  agentId      String
+  agent        User     @relation("AgentToSales", fields: [agentId], references: [id])
+  status       String   @default("PENDING") // PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED
+  date         DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  prospectId      String?
-  prospect        Prospect? @relation(fields: [prospectId], references: [id])
+  prospectId String?
+  prospect   Prospect? @relation(fields: [prospectId], references: [id])
 
-  commission      Commission?
+  // Multi-commissions (Vendeur + Leader si applicable)
+  commissions Commission[]
+
+  // Vendeur & Structure
+  sellerRole        String  @default("AGENT") // AGENT (Téléconseiller) ou ECOMMERCANT
+  leaderId          String?
+  leader            User?   @relation("LeaderToSales", fields: [leaderId], references: [id], onDelete: SetNull)
+  stockisteId       String?
+  stockiste         User?   @relation("StockisteToSales", fields: [stockisteId], references: [id], onDelete: SetNull)
+
+  // Snapshots financiers immuables au moment de la vente
+  sellerCommission  Float   @default(0)
+  leaderCommission  Float   @default(0)
+  stockisteRevenue  Float   @default(0)
 
   // Delivery fields
-  shippingType    String    @default("PICKUP") // PICKUP, DELIVERY
-  shippingCity    String?                      // MORONI, GRANDE_COMORE, ANJOUAN, MOHELI
+  shippingType    String  @default("PICKUP") // PICKUP, DELIVERY
+  shippingCity    String? // MORONI, GRANDE_COMORE, ANJOUAN, MOHELI
   shippingAddress String?
-  shippingFee     Float     @default(0)
+  shippingFee     Float   @default(0)
+  // Assigned delivery driver
+  driverId        String?
+  driver          User?   @relation("DriverToSales", fields: [driverId], references: [id], onDelete: SetNull)
+
+  user   User?   @relation("UserToSales", fields: [userId], references: [id])
+  userId String?
 }
 
 model Commission {
-  id      String   @id @default(cuid())
-  saleId  String   @unique
-  sale    Sale     @relation(fields: [saleId], references: [id])
-  agentId String
-  agent   User     @relation(fields: [agentId], references: [id])
-  amount  Float
-  date    DateTime @default(now())
-  status  String   @default("PENDING") // PENDING, PAID
+  id        String   @id @default(cuid())
+  saleId    String
+  sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  agentId   String
+  agent     User     @relation(fields: [agentId], references: [id])
+  role      String   @default("AGENT") // AGENT, ECOMMERCANT, LEADER
+  amount    Float
+  date      DateTime @default(now())
+  status    String   @default("PENDING") // PENDING, PAID
 }
 
 model Notification {

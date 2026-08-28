@@ -27,43 +27,43 @@ const navItems = [
     title: "Tableau de bord",
     href: "/",
     icon: LayoutDashboard,
-    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "DELIVERY_ASSISTANT"],
+    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "ECOMMERCANT", "STOCKISTE", "DELIVERY_ASSISTANT"],
   },
   {
     title: "CRM / Prospects",
     href: "/crm",
     icon: Users,
-    roles: ["ADMIN", "LEADER", "AGENT"],
+    roles: ["ADMIN", "LEADER", "AGENT", "ECOMMERCANT"],
   },
   {
-    title: "Téléconseillers",
+    title: "Vendeurs & Équipes",
     href: "/agents",
     icon: Contact,
-    roles: ["ADMIN", "ACCOUNTANT", "LEADER"],
+    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "STOCKISTE"],
   },
   {
     title: "Produits & Stock",
     href: "/products",
     icon: Package,
-    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "DELIVERY_ASSISTANT"],
+    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "ECOMMERCANT", "STOCKISTE", "DELIVERY_ASSISTANT"],
   },
   {
     title: "Ventes",
     href: "/sales",
     icon: ShoppingCart,
-    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "DELIVERY_ASSISTANT"],
+    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "ECOMMERCANT", "STOCKISTE", "DELIVERY_ASSISTANT"],
   },
   {
     title: "Livraisons",
     href: "/deliveries",
     icon: Truck,
-    roles: ["ADMIN", "ACCOUNTANT", "DELIVERY_ASSISTANT"],
+    roles: ["ADMIN", "ACCOUNTANT", "DELIVERY_ASSISTANT", "DELIVERY"],
   },
   {
     title: "Commissions",
     href: "/commissions",
     icon: Banknote,
-    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT"],
+    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "ECOMMERCANT", "STOCKISTE"],
   },
   {
     title: "Comptabilité",
@@ -75,7 +75,7 @@ const navItems = [
     title: "Paramètres",
     href: "/settings",
     icon: Settings,
-    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "DELIVERY_ASSISTANT"],
+    roles: ["ADMIN", "ACCOUNTANT", "LEADER", "AGENT", "ECOMMERCANT", "STOCKISTE", "DELIVERY_ASSISTANT"],
   },
 ];
 
@@ -83,7 +83,10 @@ const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> 
   ADMIN: { label: "Administrateur", color: "#F3C442", bg: "rgba(243,196,66,0.12)" },
   ACCOUNTANT: { label: "Comptable", color: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
   LEADER: { label: "Leader", color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
-  AGENT: { label: "Agent Commercial", color: "#34d399", bg: "rgba(52,211,153,0.12)" },
+  AGENT: { label: "Téléconseiller", color: "#34d399", bg: "rgba(52,211,153,0.12)" },
+  ECOMMERCANT: { label: "E-commerçant", color: "#ec4899", bg: "rgba(236,72,153,0.12)" },
+  STOCKISTE: { label: "Stockiste", color: "#06b6d4", bg: "rgba(6,182,212,0.12)" },
+  DELIVERY: { label: "Livreur", color: "#34d399", bg: "rgba(52,211,153,0.12)" },
   DELIVERY_ASSISTANT: { label: "Livraisons", color: "#f97316", bg: "rgba(249,115,22,0.12)" },
 };
 

@@ -5,7 +5,6 @@ import prisma from "@/lib/prisma";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 
-// Helper to check if current user is admin, accountant, or leader
 async function checkAuth() {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -16,22 +15,38 @@ async function checkAuth() {
   }
 
   const role = session.user.role || "AGENT";
-  if (role !== "ADMIN" && role !== "ACCOUNTANT" && role !== "LEADER") {
+  if (role !== "ADMIN" && role !== "ACCOUNTANT" && role !== "LEADER" && role !== "STOCKISTE") {
     throw new Error("Non autorisé");
   }
 
   return session.user;
 }
 
-export async function getAgentsAction() {
+export async function getAgentsAction(roleFilter?: string) {
   const user = await checkAuth();
   const role = user.role || "AGENT";
 
   try {
-    // Leaders see only their own agents
-    const whereClause = role === "LEADER"
-      ? { role: "AGENT", leaderId: user.id }
-      : { role: "AGENT" };
+    let whereClause: any = {};
+
+    if (role === "LEADER") {
+      // Leaders see only their own Téléconseillers
+      whereClause = { role: "AGENT", leaderId: user.id };
+    } else if (role === "STOCKISTE") {
+      // Stockiste can see all active sellers
+      whereClause = {
+        role: { in: ["AGENT", "ECOMMERCANT", "LEADER"] },
+      };
+    } else {
+      // ADMIN & ACCOUNTANT
+      if (roleFilter && roleFilter !== "ALL") {
+        whereClause = { role: roleFilter };
+      } else {
+        whereClause = {
+          role: { in: ["AGENT", "ECOMMERCANT", "LEADER", "STOCKISTE"] },
+        };
+      }
+    }
 
     const agents = await prisma.user.findMany({
       where: whereClause,
@@ -80,7 +95,6 @@ export async function getAgentsAction() {
         0
       );
 
-      // Clients obtained are prospects with status "CLIENT" or "CONFIRMED"
       const clientsCount = agent.prospects.filter(
         (p) => p.status === "CLIENT" || p.status === "CONFIRMED"
       ).length;
@@ -92,6 +106,7 @@ export async function getAgentsAction() {
         id: agent.id,
         name: agent.name,
         email: agent.email,
+        role: agent.role,
         createdAt: agent.createdAt,
         prospectsCount,
         salesCount,
@@ -106,7 +121,25 @@ export async function getAgentsAction() {
     return { success: true, agents: formattedAgents };
   } catch (error: any) {
     console.error("Error fetching agents:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: error.message, agents: [] };
+  }
+}
+
+export async function getLeadersAction() {
+  try {
+    const leaders = await prisma.user.findMany({
+      where: { role: "LEADER" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
+      orderBy: { name: "asc" },
+    });
+
+    return { success: true, leaders };
+  } catch (error: any) {
+    return { success: false, error: error.message, leaders: [] };
   }
 }
 
@@ -117,6 +150,9 @@ export async function getAgentDetailAction(agentId: string) {
     const agent = await prisma.user.findUnique({
       where: { id: agentId },
       include: {
+        leader: {
+          select: { id: true, name: true },
+        },
         prospects: {
           orderBy: { createdAt: "desc" },
           take: 10,
@@ -147,10 +183,9 @@ export async function getAgentDetailAction(agentId: string) {
     });
 
     if (!agent) {
-      return { success: false, error: "Agent non trouvé" };
+      return { success: false, error: "Utilisateur non trouvé" };
     }
 
-    // Overall stats
     const totalProspects = await prisma.prospect.count({ where: { agentId } });
     const contactedProspects = await prisma.prospect.count({
       where: {
@@ -166,14 +201,6 @@ export async function getAgentDetailAction(agentId: string) {
     });
     const totalSales = await prisma.sale.count({ where: { agentId } });
 
-    const revenueResult = await prisma.sale.aggregate({
-      where: { agentId },
-      _sum: {
-        price: true, // Wait, since quantity might be > 1, we should fetch sales and compute or aggregate
-      },
-    });
-
-    // Compute revenue safely
     const salesForRevenue = await prisma.sale.findMany({
       where: { agentId },
       select: { price: true, quantity: true },
@@ -194,7 +221,7 @@ export async function getAgentDetailAction(agentId: string) {
     const conversionRate =
       totalProspects > 0 ? (clientsCount / totalProspects) * 100 : 0;
 
-    // Monthly data for past 6 months for chart
+    // Monthly data for past 6 months
     const monthlyStats = [];
     const months = ["Janv.", "Févr.", "Mars", "Avril", "Mai", "Juin", "Juil.", "Août", "Sept.", "Oct.", "Nov.", "Déc."];
     
@@ -207,7 +234,6 @@ export async function getAgentDetailAction(agentId: string) {
       const startOfMonth = new Date(year, monthIndex, 1);
       const endOfMonth = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
 
-      // Get monthly sales
       const monthlySalesList = await prisma.sale.findMany({
         where: {
           agentId,
@@ -223,7 +249,6 @@ export async function getAgentDetailAction(agentId: string) {
         0
       );
 
-      // Get monthly commissions
       const mCommResult = await prisma.commission.aggregate({
         where: {
           agentId,
@@ -250,6 +275,8 @@ export async function getAgentDetailAction(agentId: string) {
         name: agent.name,
         email: agent.email,
         role: agent.role,
+        leaderName: agent.leader?.name || null,
+        leaderId: agent.leaderId || null,
         createdAt: agent.createdAt,
       },
       stats: {
@@ -298,7 +325,7 @@ export async function createAgentAction(data: {
 
   const { name, email } = data;
 
-  // Generate random 12-character alphanumeric/symbol password
+  // Generate random password if not provided
   const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$";
   let generatedPassword = "";
   for (let i = 0; i < 12; i++) {
@@ -306,26 +333,28 @@ export async function createAgentAction(data: {
   }
   const passwordToUse = data.password && data.password.trim() !== "" ? data.password : generatedPassword;
 
-  // Determine role of the user to be created
+  // Determine target role
   let targetRole = "AGENT";
   if (currentRole === "ADMIN" && data.role) {
     targetRole = data.role;
   }
 
-  // Determine which leader to assign the agent to
+  // Règle 1: Un E-commerçant ne peut PAS être rattaché à un Leader
+  // Règle 2: Un Téléconseiller (AGENT) doit être rattaché à un Leader
   let targetLeaderId: string | null = null;
+
   if (targetRole === "AGENT") {
     if (currentRole === "LEADER") {
-      // Leaders always assign agents to themselves
       targetLeaderId = user.id;
-    } else if (currentRole === "ADMIN" && data.leaderId) {
-      // Admin can specify a leader
+    } else if (data.leaderId) {
       targetLeaderId = data.leaderId;
     }
+  } else {
+    // E-commerçant, Stockiste, Leader, etc. : pas de leader
+    targetLeaderId = null;
   }
 
   try {
-    // Check if user already exists
     const existing = await prisma.user.findFirst({
       where: { email },
     });
@@ -334,7 +363,6 @@ export async function createAgentAction(data: {
       return { success: false, error: "Un utilisateur avec cet email existe déjà." };
     }
 
-    // Create via Better Auth API
     const created = await auth.api.signUpEmail({
       body: {
         email,
@@ -345,7 +373,6 @@ export async function createAgentAction(data: {
     });
 
     if (created && created.user) {
-      // Set role and assign leader in DB
       await prisma.user.update({
         where: { id: created.user.id },
         data: {
@@ -354,21 +381,15 @@ export async function createAgentAction(data: {
         },
       });
 
-      // Audit Log
-      const currentUser = await auth.api.getSession({
-        headers: await headers(),
+      await prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "CREATE_USER",
+          entity: "user",
+          entityId: created.user.id,
+          details: `Création du compte ${name} (${email}, rôle: ${targetRole})${targetLeaderId ? ` rattaché au leader ${targetLeaderId}` : ""}`,
+        },
       });
-      if (currentUser?.user) {
-        await prisma.auditLog.create({
-          data: {
-            userId: currentUser.user.id,
-            action: "CREATE_USER",
-            entity: "user",
-            entityId: created.user.id,
-            details: `Création de l'utilisateur ${name} (${email}, rôle: ${targetRole})${targetLeaderId ? ` assigné au leader ${targetLeaderId}` : ""}`,
-          },
-        });
-      }
 
       revalidatePath("/agents");
       revalidatePath("/settings");
@@ -394,7 +415,6 @@ export async function updateAgentAction(
   const user = await checkAuth();
   const currentRole = user.role || "AGENT";
 
-  // Leaders can only update their own agents
   if (currentRole === "LEADER") {
     const agent = await prisma.user.findUnique({ where: { id: agentId } });
     if (!agent || agent.leaderId !== user.id) {
@@ -405,7 +425,6 @@ export async function updateAgentAction(
   const { name, email, role } = data;
 
   try {
-    // Verify email doesn't conflict with another user
     const conflict = await prisma.user.findFirst({
       where: {
         email,
@@ -419,8 +438,10 @@ export async function updateAgentAction(
 
     const updateData: any = { name, email, role };
 
-    // Only admin can reassign leader
-    if (currentRole === "ADMIN" && data.leaderId !== undefined) {
+    // Apply leader rules
+    if (role === "ECOMMERCANT" || role === "STOCKISTE") {
+      updateData.leaderId = null;
+    } else if (role === "AGENT" && data.leaderId !== undefined) {
       updateData.leaderId = data.leaderId || null;
     }
 
@@ -429,21 +450,15 @@ export async function updateAgentAction(
       data: updateData,
     });
 
-    // Audit Log
-    const currentUser = await auth.api.getSession({
-      headers: await headers(),
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "UPDATE_USER",
+        entity: "user",
+        entityId: agentId,
+        details: `Mise à jour : ${name} (${email}, rôle: ${role})`,
+      },
     });
-    if (currentUser?.user) {
-      await prisma.auditLog.create({
-        data: {
-          userId: currentUser.user.id,
-          action: "UPDATE_AGENT",
-          entity: "user",
-          entityId: agentId,
-          details: `Mise à jour des informations de l'agent : ${name} (${email}, rôle: ${role})`,
-        },
-      });
-    }
 
     revalidatePath("/agents");
     revalidatePath("/settings");
@@ -455,18 +470,49 @@ export async function updateAgentAction(
   }
 }
 
-/**
- * Fetch all users (for Admin parameters page)
- */
+export async function deleteAgentAction(agentId: string) {
+  const user = await checkAuth();
+  const currentRole = user.role || "AGENT";
+
+  if (currentRole !== "ADMIN") {
+    return { success: false, error: "Seuls les administrateurs peuvent supprimer un compte." };
+  }
+
+  try {
+    await prisma.user.delete({
+      where: { id: agentId },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: "DELETE_USER",
+        entity: "user",
+        entityId: agentId,
+        details: `Suppression du compte utilisateur ${agentId}`,
+      },
+    });
+
+    revalidatePath("/agents");
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error deleting agent:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export const deleteUserAction = deleteAgentAction;
+
 export async function getUsersAction() {
   const user = await checkAuth();
   if (user.role !== "ADMIN") {
-    throw new Error("Accès refusé. Réservé aux administrateurs.");
+    return { success: false, error: "Non autorisé" };
   }
 
   try {
     const users = await prisma.user.findMany({
-      orderBy: { name: "asc" },
+      orderBy: { createdAt: "desc" },
       include: {
         leader: {
           select: {
@@ -483,143 +529,14 @@ export async function getUsersAction() {
         id: u.id,
         name: u.name,
         email: u.email,
-        role: u.role || "AGENT",
+        role: u.role,
         createdAt: u.createdAt,
-        leaderId: u.leaderId || null,
+        leaderId: u.leaderId,
         leaderName: u.leader?.name || null,
       })),
     };
   } catch (error: any) {
-    console.error("Error fetching users:", error);
-    return { success: false, error: error.message };
-  }
-}
-
-/**
- * Delete any user (for Admin parameters page)
- */
-export async function deleteUserAction(userId: string) {
-  const user = await checkAuth();
-  if (user.role !== "ADMIN") {
-    throw new Error("Accès refusé. Réservé aux administrateurs.");
-  }
-
-  // Prevent self-deletion
-  if (userId === user.id) {
-    return { success: false, error: "Vous ne pouvez pas supprimer votre propre compte." };
-  }
-
-  try {
-    // Check if user has related prospects, sales or commissions
-    const userRelations = await prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        _count: {
-          select: {
-            prospects: true,
-            sales: true,
-            commissions: true,
-            agents: true, // if leader
-            ownedProducts: true // if leader
-          },
-        },
-      },
-    });
-
-    if (!userRelations) {
-      return { success: false, error: "Utilisateur introuvable." };
-    }
-
-    const counts = userRelations._count;
-    if (counts.prospects > 0 || counts.sales > 0 || counts.commissions > 0) {
-      return {
-        success: false,
-        error: "Cet utilisateur possède des prospects, des ventes ou des commissions associées et ne peut pas être supprimé pour préserver l'historique.",
-      };
-    }
-
-    if (counts.agents > 0) {
-      return {
-        success: false,
-        error: "Ce leader gère actuellement des téléconseillers. Veuillez réaffecter ses agents avant de le supprimer.",
-      };
-    }
-
-    if (counts.ownedProducts > 0) {
-      return {
-        success: false,
-        error: "Ce leader possède des produits spécifiques. Veuillez réaffecter ou supprimer ses produits avant de le supprimer.",
-      };
-    }
-
-    // Delete session and account details first
-    await prisma.session.deleteMany({ where: { userId } });
-    await prisma.account.deleteMany({ where: { userId } });
-
-    // Delete user
-    await prisma.user.delete({ where: { id: userId } });
-
-    // Audit Log
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: "DELETE_USER",
-        entity: "user",
-        entityId: userId,
-        details: `Suppression de l'utilisateur ${userRelations.name} (${userRelations.email})`,
-      },
-    });
-
-    revalidatePath("/settings");
-    revalidatePath("/agents");
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error deleting user:", error);
-    return { success: false, error: error.message };
-  }
-}
-
-export async function deleteAgentAction(agentId: string) {
-  const currentUser = await checkAuth();
-
-  if (currentUser.id === agentId) {
-    return { success: false, error: "Vous ne pouvez pas vous supprimer vous-même." };
-  }
-
-  try {
-    // Check if agent has prospects, sales, or commissions
-    const prospectsCount = await prisma.prospect.count({ where: { agentId } });
-    const salesCount = await prisma.sale.count({ where: { agentId } });
-    const commissionsCount = await prisma.commission.count({ where: { agentId } });
-
-    if (prospectsCount > 0 || salesCount > 0 || commissionsCount > 0) {
-      return {
-        success: false,
-        error:
-          "Impossible de supprimer cet agent car il possède des données commerciales actives (prospects, ventes ou commissions). Vous pouvez à la place réaffecter ses prospects ou modifier son compte.",
-      };
-    }
-
-    // Delete associated sessions and accounts first due to cascade, then delete user
-    await prisma.session.deleteMany({ where: { userId: agentId } });
-    await prisma.account.deleteMany({ where: { userId: agentId } });
-    await prisma.user.delete({ where: { id: agentId } });
-
-    // Audit Log
-    await prisma.auditLog.create({
-      data: {
-        userId: currentUser.id,
-        action: "DELETE_AGENT",
-        entity: "user",
-        entityId: agentId,
-        details: `Suppression de l'utilisateur ${agentId}`,
-      },
-    });
-
-    revalidatePath("/agents");
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error deleting agent:", error);
+    console.error("Error getting users:", error);
     return { success: false, error: error.message };
   }
 }
@@ -634,9 +551,14 @@ export async function createProspectAction(data: {
   interestedProduct?: string;
   comments?: string;
   status?: string;
-  agentId: string;
+  agentId?: string;
 }) {
-  await checkAuth();
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session) {
+    return { success: false, error: "Non authentifié" };
+  }
 
   const {
     fullName,
@@ -651,17 +573,9 @@ export async function createProspectAction(data: {
     agentId,
   } = data;
 
-  if (!fullName.trim()) {
-    return { success: false, error: "Le nom complet est obligatoire." };
-  }
+  const targetAgentId = agentId || session.user.id;
 
   try {
-    // Verify agent exists
-    const agent = await prisma.user.findUnique({ where: { id: agentId } });
-    if (!agent) {
-      return { success: false, error: "Agent non trouvé." };
-    }
-
     const prospect = await prisma.prospect.create({
       data: {
         fullName: fullName.trim(),
@@ -673,28 +587,22 @@ export async function createProspectAction(data: {
         interestedProduct: interestedProduct?.trim() || null,
         comments: comments?.trim() || null,
         status,
-        agentId,
+        agentId: targetAgentId,
       },
     });
 
-    // Audit Log
-    const currentUser = await auth.api.getSession({
-      headers: await headers(),
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "CREATE_PROSPECT",
+        entity: "prospect",
+        entityId: prospect.id,
+        details: `Ajout du prospect "${fullName}"`,
+      },
     });
-    if (currentUser?.user) {
-      await prisma.auditLog.create({
-        data: {
-          userId: currentUser.user.id,
-          action: "CREATE_PROSPECT",
-          entity: "prospect",
-          entityId: prospect.id,
-          details: `Ajout du prospect "${fullName}" affecté à l'agent ${agent.name} (${agent.email})`,
-        },
-      });
-    }
 
-    revalidatePath(`/agents/${agentId}`);
     revalidatePath("/crm");
+    revalidatePath(`/agents/${targetAgentId}`);
     return { success: true, prospectId: prospect.id };
   } catch (error: any) {
     console.error("Error creating prospect:", error);
@@ -706,7 +614,12 @@ export async function updateProspectStatusAction(
   prospectId: string,
   newStatus: string
 ) {
-  await checkAuth();
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session) {
+    return { success: false, error: "Non authentifié" };
+  }
 
   try {
     const prospect = await prisma.prospect.update({
@@ -714,24 +627,18 @@ export async function updateProspectStatusAction(
       data: { status: newStatus },
     });
 
-    // Audit Log
-    const currentUser = await auth.api.getSession({
-      headers: await headers(),
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "UPDATE_PROSPECT_STATUS",
+        entity: "prospect",
+        entityId: prospectId,
+        details: `Changement de statut du prospect "${prospect.fullName}" → ${newStatus}`,
+      },
     });
-    if (currentUser?.user) {
-      await prisma.auditLog.create({
-        data: {
-          userId: currentUser.user.id,
-          action: "UPDATE_PROSPECT_STATUS",
-          entity: "prospect",
-          entityId: prospectId,
-          details: `Changement de statut du prospect "${prospect.fullName}" → ${newStatus}`,
-        },
-      });
-    }
 
-    revalidatePath(`/agents/${prospect.agentId}`);
     revalidatePath("/crm");
+    revalidatePath(`/agents/${prospect.agentId}`);
     return { success: true };
   } catch (error: any) {
     console.error("Error updating prospect status:", error);

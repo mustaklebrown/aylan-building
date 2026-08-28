@@ -7,7 +7,13 @@ const prismaClientSingleton = () => {
     connectionString: process.env.DATABASE_URL,
     max: 10,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000,
+    connectionTimeoutMillis: 15000,
+    // Enable SSL for hosted Postgres (Neon). Skip certificate verification
+    // in development to avoid TLS handshake issues. For production, set
+    // proper certificate verification.
+    ssl: {
+      rejectUnauthorized: false,
+    },
   });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({

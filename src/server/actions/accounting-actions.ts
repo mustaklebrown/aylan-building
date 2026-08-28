@@ -41,7 +41,6 @@ export async function getAccountingAction() {
       ? allLeaders.filter((l) => l.id === user.id)
       : allLeaders;
 
-    const leaderIds = leaders.map((l) => l.id);
 
     // 2. Fetch all validated sales with product info
     const validatedStatuses = ["CONFIRMED", "SHIPPED", "DELIVERED"];

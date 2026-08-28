@@ -23,11 +23,21 @@ export async function getCommissionsAction() {
 
   // Build where clause based on role
   let whereClause: any = {};
-  if (role === "AGENT") {
+  if (role === "AGENT" || role === "ECOMMERCANT") {
     whereClause = { agentId: user.id };
   } else if (role === "LEADER") {
-    // Leaders see commissions from their agents
-    whereClause = { agent: { leaderId: user.id } };
+    // Leaders see their own leader commissions + commissions of their team agents
+    whereClause = {
+      OR: [
+        { agentId: user.id },
+        { agent: { leaderId: user.id } },
+      ],
+    };
+  } else if (role === "STOCKISTE") {
+    // Stockistes see commissions associated with sales of their products
+    whereClause = {
+      sale: { stockisteId: user.id },
+    };
   }
   // ADMIN and ACCOUNTANT see all
 
@@ -40,6 +50,7 @@ export async function getCommissionsAction() {
           select: {
             name: true,
             email: true,
+            role: true,
           },
         },
         sale: {
@@ -48,6 +59,12 @@ export async function getCommissionsAction() {
             customerName: true,
             price: true,
             quantity: true,
+            sellerRole: true,
+            stockiste: {
+              select: {
+                name: true,
+              },
+            },
             product: {
               select: {
                 name: true,
@@ -58,7 +75,6 @@ export async function getCommissionsAction() {
       },
     });
 
-    // Calculate summaries
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -80,12 +96,15 @@ export async function getCommissionsAction() {
       date: c.date,
       amount: c.amount,
       status: c.status,
+      role: c.role || c.agent?.role || "AGENT",
       agentName: c.agent.name,
       agentEmail: c.agent.email,
       agentId: c.agentId,
       saleId: c.saleId,
       customerName: c.sale.customerName,
       productName: c.sale.product.name,
+      sellerRole: c.sale.sellerRole || "AGENT",
+      stockisteName: c.sale.stockiste?.name || null,
       saleTotal: c.sale.price * c.sale.quantity,
     }));
 
@@ -127,20 +146,18 @@ export async function payCommissionAction(commissionId: string) {
       return { success: false, error: "Cette commission est déjà payée." };
     }
 
-    // Update commission status
     await prisma.commission.update({
       where: { id: commissionId },
       data: { status: "PAID" },
     });
 
-    // Audit Log
     await prisma.auditLog.create({
       data: {
         userId: user.id,
         action: "PAY_COMMISSION",
         entity: "commission",
         entityId: commissionId,
-        details: `Paiement validé pour la commission de ${commission.amount} KMF due à l'agent ${commission.agent.name}`,
+        details: `Paiement validé pour la commission de ${commission.amount} KMF due à ${commission.agent.name} (${commission.role})`,
       },
     });
 

@@ -43,16 +43,22 @@ import {
   AlertTriangle,
   ArrowUpDown,
   History,
-  Info,
   DollarSign,
   Coins,
   Warehouse,
   Download,
+  CheckCircle2,
+  XCircle,
+  ToggleLeft,
+  ToggleRight,
+  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   createProductAction,
   recordStockMovementAction,
+  toggleProductActiveAction,
 } from "@/server/actions/product-actions";
 import { formatCurrency, formatDate } from "@/lib/format-utils";
 import { exportToCSV } from "@/lib/export-utils";
@@ -76,12 +82,20 @@ interface Product {
   purchasePrice: number;
   salePrice: number;
   agentCommission: number;
+  ecommercantCommission: number;
+  leaderCommission: number;
   stockAvailable: number;
   alertThreshold: number;
   isAlert: boolean;
+  isActive: boolean;
   isCommon: boolean;
+  stockisteId: string | null;
+  stockisteName: string | null;
+  stockisteEmail?: string | null;
   leaderId: string | null;
   leaderName: string | null;
+  allowAllEcommercants: boolean;
+  allowAllLeaders: boolean;
   recentMovements: StockMovement[];
 }
 
@@ -109,6 +123,7 @@ export function ProductsClientPage({
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -127,68 +142,106 @@ export function ProductsClientPage({
     purchasePrice: 0,
     salePrice: 0,
     agentCommission: 0,
+    ecommercantCommission: 0,
+    leaderCommission: 0,
     stockAvailable: 0,
     alertThreshold: 5,
+    allowAllEcommercants: true,
+    allowAllLeaders: true,
   });
 
   const [moveForm, setMoveForm] = useState({
     productId: "",
-    type: "IN" as "IN" | "OUT_LOSS" | "OUT_DAMAGE" | "OUT_RETURN",
+    type: "IN" as "IN" | "OUT_LOSS" | "OUT_DAMAGE" | "OUT_RETURN" | "CORRECTION",
     quantity: 1,
     cost: 0,
     supplier: "",
   });
 
-  const canEdit = currentUser.role === "ADMIN" || currentUser.role === "ACCOUNTANT" || currentUser.role === "LEADER";
-  const isAgent = currentUser.role === "AGENT";
-  const isLeader = currentUser.role === "LEADER";
+  const role = currentUser.role || "AGENT";
+  const isAgent = role === "AGENT";
+  const isEcommercant = role === "ECOMMERCANT";
+  const isStockiste = role === "STOCKISTE";
+  const isLeader = role === "LEADER";
+  const isAdminOrAccountant = role === "ADMIN" || role === "ACCOUNTANT";
 
-  // Categories list
-  const categories = ["all", ...Array.from(new Set(products.map((p) => p.category)))];
+  const canCreate = isAdminOrAccountant || isStockiste || isLeader;
+  const canMoveStock = isAdminOrAccountant || isStockiste;
 
-  // Filters
+  const categories = ["all", ...Array.from(new Set(products.map((p) => p.category || "Autre")))];
+
   const filteredProducts = products.filter((p) => {
     const matchesSearch =
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory =
-      selectedCategory === "all" || p.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+      p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.stockisteName && p.stockisteName.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesCat = selectedCategory === "all" || p.category === selectedCategory;
+    const matchesStatus =
+      statusFilter === "all" ||
+      (statusFilter === "active" && p.isActive) ||
+      (statusFilter === "inactive" && !p.isActive) ||
+      (statusFilter === "alert" && p.isAlert);
+
+    return matchesSearch && matchesCat && matchesStatus;
   });
 
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!addForm.name || !addForm.sku) {
-      toast.error("Veuillez saisir le nom et le SKU.");
-      return;
-    }
-
     setIsSubmitting(true);
+
     try {
-      const res = await createProductAction(addForm);
+      const res = await createProductAction({
+        name: addForm.name,
+        sku: addForm.sku,
+        category: addForm.category || "Autre",
+        description: addForm.description,
+        purchasePrice: addForm.purchasePrice,
+        salePrice: addForm.salePrice,
+        agentCommission: addForm.agentCommission,
+        ecommercantCommission: addForm.ecommercantCommission,
+        leaderCommission: addForm.leaderCommission,
+        stockAvailable: addForm.stockAvailable,
+        alertThreshold: addForm.alertThreshold,
+        allowAllEcommercants: addForm.allowAllEcommercants,
+        allowAllLeaders: addForm.allowAllLeaders,
+      });
+
       if (res.success && res.product) {
-        toast.success("Produit ajouté avec succès !");
-        
+        toast.success("Produit ajouté au catalogue !");
         const newProduct: Product = {
-          ...res.product,
+          id: res.product.id,
+          name: res.product.name,
+          sku: res.product.sku,
           category: res.product.category || "Autre",
           description: res.product.description || "",
+          purchasePrice: res.product.purchasePrice,
+          salePrice: res.product.salePrice,
+          agentCommission: res.product.agentCommission,
+          ecommercantCommission: res.product.ecommercantCommission,
+          leaderCommission: res.product.leaderCommission,
+          stockAvailable: res.product.stockAvailable,
+          alertThreshold: res.product.alertThreshold,
           isAlert: res.product.stockAvailable <= res.product.alertThreshold,
+          isActive: res.product.isActive,
           isCommon: res.product.isCommon,
+          stockisteId: res.product.stockisteId,
+          stockisteName: isStockiste ? currentUser.name : null,
           leaderId: res.product.leaderId,
           leaderName: isLeader ? currentUser.name : null,
-          recentMovements: res.product.stockAvailable > 0 ? [{
+          allowAllEcommercants: res.product.allowAllEcommercants,
+          allowAllLeaders: res.product.allowAllLeaders,
+          recentMovements: addForm.stockAvailable > 0 ? [{
             id: "initial",
             productId: res.product.id,
             type: "IN",
-            quantity: res.product.stockAvailable,
-            cost: res.product.purchasePrice,
+            quantity: addForm.stockAvailable,
+            cost: addForm.purchasePrice,
             supplier: "Stock Initial",
             date: new Date(),
           }] : [],
         };
-        
-        setProducts([...products, newProduct]);
+        setProducts([newProduct, ...products]);
         setIsAddOpen(false);
         setAddForm({
           name: "",
@@ -198,14 +251,18 @@ export function ProductsClientPage({
           purchasePrice: 0,
           salePrice: 0,
           agentCommission: 0,
+          ecommercantCommission: 0,
+          leaderCommission: 0,
           stockAvailable: 0,
           alertThreshold: 5,
+          allowAllEcommercants: true,
+          allowAllLeaders: true,
         });
       } else {
-        toast.error(res.error || "Une erreur est survenue.");
+        toast.error(res.error || "Erreur lors de la création.");
       }
     } catch (err: any) {
-      toast.error(err.message || "Erreur lors de la création.");
+      toast.error(err.message || "Erreur réseau.");
     } finally {
       setIsSubmitting(false);
     }
@@ -213,8 +270,8 @@ export function ProductsClientPage({
 
   const handleStockMovement = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!moveForm.productId || moveForm.quantity <= 0) {
-      toast.error("Veuillez sélectionner un produit et entrer une quantité valide.");
+    if (!moveForm.productId) {
+      toast.error("Veuillez sélectionner un produit.");
       return;
     }
 
@@ -228,34 +285,26 @@ export function ProductsClientPage({
         supplier: moveForm.supplier || undefined,
       });
 
-      if (res.success && res.movement) {
+      if (res.success && res.newStock !== undefined) {
         toast.success("Mouvement de stock enregistré !");
-
-        // Update product stock in client state
         setProducts(
           products.map((p) => {
             if (p.id === moveForm.productId) {
-              let diff = moveForm.quantity;
-              if (moveForm.type === "OUT_LOSS" || moveForm.type === "OUT_DAMAGE") {
-                diff = -diff;
-              }
-              const newStock = p.stockAvailable + diff;
+              const updatedStock = res.newStock!;
+              const newMovement: StockMovement = {
+                id: res.movement?.id || Date.now().toString(),
+                productId: p.id,
+                type: moveForm.type,
+                quantity: moveForm.quantity,
+                cost: moveForm.cost > 0 ? moveForm.cost : null,
+                supplier: moveForm.supplier || null,
+                date: new Date(),
+              };
               return {
                 ...p,
-                stockAvailable: newStock,
-                isAlert: newStock <= p.alertThreshold,
-                recentMovements: [
-                  {
-                    id: res.movement!.id,
-                    productId: p.id,
-                    type: moveForm.type,
-                    quantity: moveForm.quantity,
-                    cost: moveForm.cost > 0 ? moveForm.cost : null,
-                    supplier: moveForm.supplier || null,
-                    date: new Date(),
-                  },
-                  ...p.recentMovements,
-                ].slice(0, 5),
+                stockAvailable: updatedStock,
+                isAlert: updatedStock <= p.alertThreshold,
+                recentMovements: [newMovement, ...p.recentMovements.slice(0, 4)],
               };
             }
             return p;
@@ -270,12 +319,26 @@ export function ProductsClientPage({
           supplier: "",
         });
       } else {
-        toast.error(res.error || "Une erreur est survenue.");
+        toast.error(res.error || "Erreur lors du mouvement.");
       }
     } catch (err: any) {
-      toast.error(err.message || "Erreur de connexion.");
+      toast.error(err.message || "Erreur réseau.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleToggleActive = async (productId: string) => {
+    try {
+      const res = await toggleProductActiveAction(productId);
+      if (res.success && res.isActive !== undefined) {
+        toast.success(res.isActive ? "Produit activé pour la vente." : "Produit désactivé temporairement.");
+        setProducts(products.map((p) => (p.id === productId ? { ...p, isActive: res.isActive! } : p)));
+      } else {
+        toast.error(res.error || "Erreur.");
+      }
+    } catch (err: any) {
+      toast.error("Erreur réseau.");
     }
   };
 
@@ -287,61 +350,67 @@ export function ProductsClientPage({
   const getMovementTypeBadge = (type: string) => {
     switch (type) {
       case "IN":
-        return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">Entrée</Badge>;
+        return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">Entrée Réassort</Badge>;
       case "OUT_SALE":
-        return <Badge className="bg-blue-100 text-blue-800 border-blue-200">Vente</Badge>;
+        return <Badge className="bg-blue-100 text-blue-800 border-blue-200">Vente Client</Badge>;
       case "OUT_RETURN":
-        return <Badge className="bg-indigo-100 text-indigo-800 border-indigo-200">Retour</Badge>;
+        return <Badge className="bg-purple-100 text-purple-800 border-purple-200">Retour / Annulation</Badge>;
       case "OUT_LOSS":
-        return <Badge className="bg-red-100 text-red-800 border-red-200">Perte</Badge>;
+        return <Badge className="bg-amber-100 text-amber-800 border-amber-200">Perte / Inventaire</Badge>;
       case "OUT_DAMAGE":
-        return <Badge className="bg-orange-100 text-orange-800 border-orange-200">Endommagé</Badge>;
+        return <Badge className="bg-rose-100 text-rose-800 border-rose-200">Casse / Endommagé</Badge>;
+      case "CORRECTION":
+        return <Badge className="bg-slate-100 text-slate-800 border-slate-200">Correction Manuelle</Badge>;
       default:
         return <Badge variant="outline">{type}</Badge>;
     }
   };
 
   const handleExport = () => {
-    const headers = isAgent
+    const headers = isAgent || isEcommercant
       ? [
           "Nom du Produit",
           "SKU",
-          "Categorie",
+          "Catégorie",
           "Prix de Vente (KMF)",
+          "Ma Commission (KMF)",
           "Stock Disponible",
-          "Seuil d'Alerte",
         ]
       : [
           "Nom du Produit",
           "SKU",
-          "Categorie",
+          "Catégorie",
+          "Stockiste",
           "Prix d'Achat (KMF)",
           "Prix de Vente (KMF)",
-          "Commission Agent (KMF)",
+          "Commission Téléconseiller (KMF)",
+          "Commission E-commerçant (KMF)",
+          "Commission Leader (KMF)",
           "Stock Disponible",
-          "Seuil d'Alerte",
-          "Alerte Stock",
+          "Statut",
         ];
 
-    const mapRow = (p: Product) => isAgent
+    const mapRow = (p: Product) => isAgent || isEcommercant
       ? [
           p.name,
           p.sku,
           p.category,
           p.salePrice,
+          isEcommercant ? p.ecommercantCommission : p.agentCommission,
           p.stockAvailable,
-          p.alertThreshold,
         ]
       : [
           p.name,
           p.sku,
           p.category,
+          p.stockisteName || "Direct Aylan",
           p.purchasePrice,
           p.salePrice,
           p.agentCommission,
+          p.ecommercantCommission,
+          p.leaderCommission,
           p.stockAvailable,
-          p.alertThreshold,
-          p.stockAvailable <= p.alertThreshold ? "OUI" : "NON",
+          p.isActive ? "ACTIF" : "DÉSACTIVÉ",
         ];
 
     exportToCSV(filteredProducts, headers, mapRow, "produits_aylan");
@@ -352,13 +421,17 @@ export function ProductsClientPage({
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
-            Produits & Stocks
+          <h2 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent font-heading">
+            {isStockiste ? "Mon Stock & Catalogue Produits" : isEcommercant ? "Catalogue Produits Disponibles" : "Produits & Stocks"}
           </h2>
-          <p className="text-muted-foreground mt-1">
-            {isAgent
-              ? "Consultez les fiches produits, les prix de vente et les niveaux de stock."
-              : "Gérez les fiches articles, ajustez les stocks et suivez l'historique des entrées/sorties."}
+          <p className="text-muted-foreground mt-1 text-sm">
+            {isStockiste
+              ? "Gérez vos produits, approvisionnez les stocks et configurez les commissions vendeurs."
+              : isEcommercant
+              ? "Consultez les produits mis à disposition par les stockistes avec vos commissions directes."
+              : isAgent
+              ? "Consultez les fiches produits, les prix de vente et les commissions de votre équipe."
+              : "Gestion complète du catalogue, des stockistes et des affectations vendeurs."}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -367,38 +440,38 @@ export function ProductsClientPage({
             variant="outline"
             className="border-slate-200 hover:bg-slate-50 font-medium"
           >
-            <Download className="mr-2 h-4 w-4" /> Exporter en Excel
+            <Download className="mr-2 h-4 w-4" /> Exporter en CSV
           </Button>
-          {canEdit && (
-            <>
-              <Button
-                onClick={() => setIsMoveOpen(true)}
-                variant="outline"
-                className="border-slate-200 hover:bg-slate-50 font-medium"
-              >
-                <ArrowUpDown className="mr-2 h-4 w-4" /> Mouvement de Stock
-              </Button>
-              <Button
-                onClick={() => setIsAddOpen(true)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
-              >
-                <Plus className="mr-2 h-4 w-4" /> Ajouter un produit
-              </Button>
-            </>
+          {canMoveStock && (
+            <Button
+              onClick={() => setIsMoveOpen(true)}
+              variant="outline"
+              className="border-slate-200 hover:bg-slate-50 font-medium"
+            >
+              <ArrowUpDown className="mr-2 h-4 w-4" /> Mouvement de Stock
+            </Button>
+          )}
+          {canCreate && (
+            <Button
+              onClick={() => setIsAddOpen(true)}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-md"
+            >
+              <Plus className="mr-2 h-4 w-4" /> Ajouter un produit
+            </Button>
           )}
         </div>
       </div>
 
       {/* Stock summaries */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {!isAgent && (
-          <Card className="border-indigo-500/10 bg-indigo-500/5">
+        {!isAgent && !isEcommercant && (
+          <Card className="glass-card hover:-translate-y-0.5 transition-all border-indigo-500/10 bg-indigo-500/5">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-semibold text-indigo-700">Valeur d'Achat Stock</CardTitle>
+              <CardTitle className="text-xs font-bold text-indigo-700 uppercase tracking-wider">Valeur d'Achat Stock</CardTitle>
               <Warehouse className="h-4 w-4 text-indigo-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-black text-slate-900 dark:text-white">
+              <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
                 {formatCurrency(summary.stockValue)}
               </div>
               <p className="text-xs text-indigo-600/70 font-medium mt-1">Évaluation globale au prix de revient</p>
@@ -406,58 +479,58 @@ export function ProductsClientPage({
           </Card>
         )}
 
-        <Card className="border-emerald-500/10 bg-emerald-500/5">
+        <Card className="glass-card hover:-translate-y-0.5 transition-all border-emerald-500/10 bg-emerald-500/5">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-semibold text-emerald-700">Valeur Vente Estimée</CardTitle>
+            <CardTitle className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Valeur Vente Estimée</CardTitle>
             <TrendingUp className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-black text-slate-900 dark:text-white">
+            <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
               {formatCurrency(summary.stockSalesValue)}
             </div>
             <p className="text-xs text-emerald-600/70 font-medium mt-1">Chiffre d'affaires potentiel en stock</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="glass-card hover:-translate-y-0.5 transition-all border-slate-200/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-slate-500">Articles Référencés</CardTitle>
+            <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-wider">Articles Référencés</CardTitle>
             <Package className="h-4 w-4 text-slate-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900 dark:text-white">
+            <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
               {summary.totalProducts}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Produits distincts au catalogue</p>
           </CardContent>
         </Card>
 
-        <Card className={summary.lowStockCount > 0 ? "border-red-200 bg-red-50/10" : ""}>
+        <Card className={`glass-card hover:-translate-y-0.5 transition-all ${summary.lowStockCount > 0 ? "border-red-500/20 bg-red-500/5" : "border-slate-200/50"}`}>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium text-slate-500">Alertes Rupture</CardTitle>
+            <CardTitle className={`text-xs font-bold uppercase tracking-wider ${summary.lowStockCount > 0 ? "text-red-600" : "text-slate-500"}`}>Alertes Rupture</CardTitle>
             <AlertTriangle className={`h-4 w-4 ${summary.lowStockCount > 0 ? "text-red-500" : "text-slate-400"}`} />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${summary.lowStockCount > 0 ? "text-red-600" : "text-slate-900 dark:text-white"}`}>
+            <div className={`text-2xl font-black mt-1 ${summary.lowStockCount > 0 ? "text-red-600" : "text-slate-900 dark:text-white"}`}>
               {summary.lowStockCount}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Articles sous le seuil d'alerte</p>
+            <p className="text-xs text-muted-foreground mt-1">Articles sous le seuil critique</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Catalog Table */}
-      <Card className="border-slate-100 shadow-sm">
+      <Card className="glass-card border-slate-200/50">
         <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <CardTitle className="text-lg font-bold">Catalogue Articles</CardTitle>
-            <CardDescription>Liste complète des produits avec prix, stock disponible et commissions.</CardDescription>
+            <CardTitle className="text-lg font-bold">Catalogue Articles & Commissions</CardTitle>
+            <CardDescription>Liste complète des produits avec prix, stock disponible et commissions par rôle.</CardDescription>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="relative flex-1 min-w-[200px]">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative min-w-[200px] flex-1 sm:flex-initial">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
               <Input
-                placeholder="Nom, SKU..."
+                placeholder="Nom, SKU, Stockiste..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-8 bg-background h-9 text-sm border-slate-200"
@@ -467,84 +540,155 @@ export function ProductsClientPage({
               value={selectedCategory}
               onValueChange={(value) => setSelectedCategory(value || "all")}
             >
-              <SelectTrigger className="w-[180px] h-9 border-slate-200">
+              <SelectTrigger className="w-[150px] h-9 border-slate-200 bg-background">
                 <SelectValue placeholder="Catégorie" />
               </SelectTrigger>
               <SelectContent>
                 {categories.map((cat) => (
                   <SelectItem key={cat} value={cat}>
-                    {cat === "all" ? "Toutes les catégories" : cat}
+                    {cat === "all" ? "Toutes catégories" : cat}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value || "all")}
+            >
+              <SelectTrigger className="w-[140px] h-9 border-slate-200 bg-background">
+                <SelectValue placeholder="Statut" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous statuts</SelectItem>
+                <SelectItem value="active">🟢 Actifs</SelectItem>
+                <SelectItem value="inactive">🔴 Désactivés</SelectItem>
+                <SelectItem value="alert">⚠️ Rupture/Faible</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </CardHeader>
         <CardContent className="pt-0">
-          <div className="rounded-md border border-slate-100 overflow-hidden">
+          <div className="rounded-md border border-slate-100 dark:border-slate-800 overflow-x-auto">
             <Table>
-              <TableHeader className="bg-slate-50/50">
+              <TableHeader className="bg-slate-50/50 dark:bg-slate-900/30">
                 <TableRow>
-                  <TableHead>Nom du Produit</TableHead>
+                  <TableHead>Produit</TableHead>
                   <TableHead>SKU</TableHead>
-                  <TableHead>Catégorie</TableHead>
-                  {!isAgent && <TableHead className="text-right">Prix d'Achat</TableHead>}
-                  <TableHead className="text-right">Prix de Vente</TableHead>
-                  {!isAgent && <TableHead className="text-right">Commission Agent</TableHead>}
+                  <TableHead>Stockiste</TableHead>
+                  {!isAgent && !isEcommercant && <TableHead className="text-right">Achat</TableHead>}
+                  <TableHead className="text-right">Prix Vente</TableHead>
+                  {isEcommercant ? (
+                    <TableHead className="text-right text-pink-600 font-bold">Commission E-commerçant</TableHead>
+                  ) : isAgent ? (
+                    <TableHead className="text-right text-emerald-600 font-bold">Commission Téléconseiller</TableHead>
+                  ) : (
+                    <>
+                      <TableHead className="text-right text-emerald-600 font-bold">Com. Téléconseiller</TableHead>
+                      <TableHead className="text-right text-pink-600 font-bold">Com. E-commerçant</TableHead>
+                      <TableHead className="text-right text-purple-600 font-bold">Com. Leader</TableHead>
+                    </>
+                  )}
                   <TableHead className="text-center">Stock</TableHead>
-                  <TableHead>Statut</TableHead>
-                  {!isAgent && <TableHead>Type</TableHead>}
-                  {!isAgent && <TableHead className="text-right">Actions</TableHead>}
+                  <TableHead>État</TableHead>
+                  {(isAdminOrAccountant || isStockiste) && <TableHead className="text-center">Actif</TableHead>}
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isAgent ? 6 : 10} className="text-center py-8 text-slate-400 text-sm">
-                      Aucun produit dans le catalogue.
+                    <TableCell colSpan={11} className="text-center py-10 text-slate-400 text-sm">
+                      Aucun produit ne correspond aux critères.
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredProducts.map((p) => (
                     <TableRow key={p.id} className="hover:bg-slate-50/30">
-                      <TableCell className="font-bold text-slate-800 dark:text-slate-200">{p.name}</TableCell>
-                      <TableCell className="font-mono text-xs">{p.sku}</TableCell>
-                      <TableCell className="text-xs">{p.category}</TableCell>
-                      {!isAgent && <TableCell className="text-right font-medium text-slate-500">{p.purchasePrice} KMF</TableCell>}
-                      <TableCell className="text-right font-bold text-indigo-600">{p.salePrice} KMF</TableCell>
-                      {!isAgent && <TableCell className="text-right font-semibold text-emerald-600">{p.agentCommission} KMF</TableCell>}
-                      <TableCell className="text-center font-black">{p.stockAvailable}</TableCell>
+                      <TableCell className="font-bold text-slate-800 dark:text-slate-200">
+                        <div>
+                          <p>{p.name}</p>
+                          <p className="text-[10px] text-slate-400 font-normal">{p.category}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-slate-500">#{p.sku}</TableCell>
                       <TableCell>
-                        {p.stockAvailable <= 0 ? (
-                          <Badge variant="destructive" className="bg-red-500 hover:bg-red-600">En rupture</Badge>
-                        ) : p.stockAvailable <= p.alertThreshold ? (
-                          <Badge variant="destructive" className="bg-orange-500 hover:bg-orange-600">Stock faible</Badge>
+                        {p.stockisteName ? (
+                          <Badge variant="outline" className="bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/20 text-[10px] font-bold">
+                            📦 {p.stockisteName}
+                          </Badge>
                         ) : (
-                          <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200">En stock</Badge>
+                          <Badge variant="outline" className="text-slate-400 text-[10px]">Aylan Group</Badge>
                         )}
                       </TableCell>
-                      {!isAgent && (
-                        <TableCell>
-                          {p.isCommon ? (
-                            <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200 text-[10px] font-semibold">Commun</Badge>
-                          ) : (
-                            <Badge variant="secondary" className="bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200 text-[10px] font-semibold">{p.leaderName || "Spécifique"}</Badge>
-                          )}
+                      {!isAgent && !isEcommercant && (
+                        <TableCell className="text-right font-medium text-slate-500 text-xs">
+                          {formatCurrency(p.purchasePrice)}
                         </TableCell>
                       )}
-                      {!isAgent && (
-                        <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openHistoryModal(p)}
-                            className="h-8 w-8 hover:text-indigo-600"
+                      <TableCell className="text-right font-black text-indigo-600 text-xs">
+                        {formatCurrency(p.salePrice)}
+                      </TableCell>
+
+                      {isEcommercant ? (
+                        <TableCell className="text-right font-extrabold text-pink-600 text-xs">
+                          {formatCurrency(p.ecommercantCommission)}
+                        </TableCell>
+                      ) : isAgent ? (
+                        <TableCell className="text-right font-extrabold text-emerald-600 text-xs">
+                          {formatCurrency(p.agentCommission)}
+                        </TableCell>
+                      ) : (
+                        <>
+                          <TableCell className="text-right font-bold text-emerald-600 text-xs">
+                            {formatCurrency(p.agentCommission)}
+                          </TableCell>
+                          <TableCell className="text-right font-bold text-pink-600 text-xs">
+                            {formatCurrency(p.ecommercantCommission)}
+                          </TableCell>
+                          <TableCell className="text-right font-bold text-purple-600 text-xs">
+                            {p.leaderCommission > 0 ? formatCurrency(p.leaderCommission) : "-"}
+                          </TableCell>
+                        </>
+                      )}
+
+                      <TableCell className="text-center font-black text-xs">{p.stockAvailable}</TableCell>
+                      <TableCell>
+                        {p.stockAvailable <= 0 ? (
+                          <Badge variant="destructive" className="bg-red-500/10 text-red-700 border-red-500/20 text-[10px]">Rupture</Badge>
+                        ) : p.stockAvailable <= p.alertThreshold ? (
+                          <Badge className="bg-amber-500/10 text-amber-700 border-amber-500/20 text-[10px]">Faible</Badge>
+                        ) : (
+                          <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20 text-[10px]">En stock</Badge>
+                        )}
+                      </TableCell>
+
+                      {(isAdminOrAccountant || isStockiste) && (
+                        <TableCell className="text-center">
+                          <button
+                            onClick={() => handleToggleActive(p.id)}
+                            className="p-1 rounded hover:bg-slate-100 transition-colors"
+                            title={p.isActive ? "Désactiver ce produit" : "Activer ce produit"}
                           >
-                            <History className="h-4 w-4" />
-                            <span className="sr-only">Historique</span>
-                          </Button>
+                            {p.isActive ? (
+                              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                            ) : (
+                              <XCircle className="h-4 w-4 text-slate-400" />
+                            )}
+                          </button>
                         </TableCell>
                       )}
+
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openHistoryModal(p)}
+                          className="h-8 w-8 hover:text-indigo-600"
+                          title="Historique des stocks"
+                        >
+                          <History className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -556,30 +700,30 @@ export function ProductsClientPage({
 
       {/* Add Product Modal */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Créer une fiche produit</DialogTitle>
             <DialogDescription>
-              Enregistrez un nouvel article dans le catalogue. Il sera immédiatement disponible pour les ventes.
+              Enregistrez un nouvel article avec ses règles de commissions multi-vendeurs.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddProduct} className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label htmlFor="name">Nom de l'article</Label>
+                <Label htmlFor="name">Nom de l'article *</Label>
                 <Input
                   id="name"
-                  placeholder="ex: Montre Connectée X"
+                  placeholder="ex: Robot Moulinex 800W"
                   value={addForm.name}
                   onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
                   required
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="sku">SKU unique</Label>
+                <Label htmlFor="sku">SKU unique *</Label>
                 <Input
                   id="sku"
-                  placeholder="ex: MNT-CONN-X"
+                  placeholder="ex: MOUL-800W-01"
                   value={addForm.sku}
                   onChange={(e) => setAddForm({ ...addForm, sku: e.target.value })}
                   required
@@ -592,7 +736,7 @@ export function ProductsClientPage({
                 <Label htmlFor="category">Catégorie</Label>
                 <Input
                   id="category"
-                  placeholder="ex: Électronique"
+                  placeholder="ex: Électroménager"
                   value={addForm.category}
                   onChange={(e) => setAddForm({ ...addForm, category: e.target.value })}
                 />
@@ -609,23 +753,12 @@ export function ProductsClientPage({
               </div>
             </div>
 
-            <div className="space-y-1">
-              <Label htmlFor="description">Description (facultatif)</Label>
-              <Input
-                id="description"
-                placeholder="Brève description du produit..."
-                value={addForm.description}
-                onChange={(e) => setAddForm({ ...addForm, description: e.target.value })}
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label htmlFor="purchasePrice" className="flex items-center"><DollarSign className="h-3 w-3 mr-0.5 text-slate-400"/> Achat (€)</Label>
+                <Label htmlFor="purchasePrice" className="flex items-center">Prix d'Achat (KMF) *</Label>
                 <Input
                   id="purchasePrice"
                   type="number"
-                  step="0.01"
                   min="0"
                   value={addForm.purchasePrice}
                   onChange={(e) => setAddForm({ ...addForm, purchasePrice: parseFloat(e.target.value) || 0 })}
@@ -633,33 +766,63 @@ export function ProductsClientPage({
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="salePrice" className="flex items-center"><DollarSign className="h-3 w-3 mr-0.5 text-slate-400"/> Vente (€)</Label>
+                <Label htmlFor="salePrice" className="flex items-center font-bold text-indigo-600">Prix de Vente (KMF) *</Label>
                 <Input
                   id="salePrice"
                   type="number"
-                  step="0.01"
                   min="0"
                   value={addForm.salePrice}
                   onChange={(e) => setAddForm({ ...addForm, salePrice: parseFloat(e.target.value) || 0 })}
                   required
                 />
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="agentCommission" className="flex items-center"><Coins className="h-3 w-3 mr-0.5 text-slate-400"/> Commission (€)</Label>
-                <Input
-                  id="agentCommission"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={addForm.agentCommission}
-                  onChange={(e) => setAddForm({ ...addForm, agentCommission: parseFloat(e.target.value) || 0 })}
-                  required
-                />
+            </div>
+
+            {/* Commissions Section */}
+            <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+              <p className="text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Coins className="h-3.5 w-3.5 text-amber-500" />
+                Grille des Commissions par Rôle
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="agentCommission" className="text-[11px] font-bold text-emerald-600">Téléconseiller (KMF)</Label>
+                  <Input
+                    id="agentCommission"
+                    type="number"
+                    min="0"
+                    placeholder="3000"
+                    value={addForm.agentCommission}
+                    onChange={(e) => setAddForm({ ...addForm, agentCommission: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="ecommercantCommission" className="text-[11px] font-bold text-pink-600">E-commerçant (KMF)</Label>
+                  <Input
+                    id="ecommercantCommission"
+                    type="number"
+                    min="0"
+                    placeholder="5000"
+                    value={addForm.ecommercantCommission}
+                    onChange={(e) => setAddForm({ ...addForm, ecommercantCommission: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="leaderCommission" className="text-[11px] font-bold text-purple-600">Leader (KMF)</Label>
+                  <Input
+                    id="leaderCommission"
+                    type="number"
+                    min="0"
+                    placeholder="1500"
+                    value={addForm.leaderCommission}
+                    onChange={(e) => setAddForm({ ...addForm, leaderCommission: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
               </div>
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="stockAvailable">Stock initial</Label>
+              <Label htmlFor="stockAvailable">Stock initial disponible</Label>
               <Input
                 id="stockAvailable"
                 type="number"
@@ -667,7 +830,6 @@ export function ProductsClientPage({
                 value={addForm.stockAvailable}
                 onChange={(e) => setAddForm({ ...addForm, stockAvailable: parseInt(e.target.value) || 0 })}
               />
-              <p className="text-[10px] text-slate-400">Une entrée de stock automatique de ce montant sera enregistrée.</p>
             </div>
 
             <DialogFooter className="pt-4">
@@ -682,7 +844,7 @@ export function ProductsClientPage({
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
               >
                 {isSubmitting ? "Création..." : "Ajouter le produit"}
               </Button>
@@ -693,11 +855,11 @@ export function ProductsClientPage({
 
       {/* Record Stock Movement Modal */}
       <Dialog open={isMoveOpen} onOpenChange={setIsMoveOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
             <DialogTitle>Enregistrer un mouvement de stock</DialogTitle>
             <DialogDescription>
-              Ajoutez ou retirez des articles physiquement (hors ventes automatiques).
+              Entrée de réassort, sortie de casse, retour client ou correction d'inventaire.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleStockMovement} className="space-y-4 py-2">
@@ -707,7 +869,6 @@ export function ProductsClientPage({
                 value={moveForm.productId}
                 onValueChange={(val) => {
                   setMoveForm({ ...moveForm, productId: val || "" });
-                  // prefill cost with product purchase price
                   const p = products.find((x) => x.id === val);
                   if (p) {
                     setMoveForm((prev) => ({ ...prev, cost: p.purchasePrice }));
@@ -715,14 +876,12 @@ export function ProductsClientPage({
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Choisir un produit">
-                    {moveForm.productId ? (products.find((p) => p.id === moveForm.productId)?.name) : undefined}
-                  </SelectValue>
+                  <SelectValue placeholder="Choisir un produit" />
                 </SelectTrigger>
                 <SelectContent>
                   {products.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.name} ({p.sku}) • Stock : {p.stockAvailable}
+                      {p.name} ({p.sku}) • Stock actuel : {p.stockAvailable}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -740,10 +899,11 @@ export function ProductsClientPage({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="IN">Entrée (Nouvel Achat / Réassort)</SelectItem>
-                    <SelectItem value="OUT_RETURN">Entrée (Retour Client)</SelectItem>
-                    <SelectItem value="OUT_LOSS">Sortie (Perte / Inventaire)</SelectItem>
-                    <SelectItem value="OUT_DAMAGE">Sortie (Produit Endommagé)</SelectItem>
+                    <SelectItem value="IN">➕ Entrée (Réassort / Achat)</SelectItem>
+                    <SelectItem value="OUT_RETURN">🔄 Entrée (Retour Client)</SelectItem>
+                    <SelectItem value="OUT_LOSS">➖ Sortie (Perte)</SelectItem>
+                    <SelectItem value="OUT_DAMAGE">⚠️ Sortie (Casse / Endommagé)</SelectItem>
+                    <SelectItem value="CORRECTION">⚙️ Correction Inventaire</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -761,27 +921,14 @@ export function ProductsClientPage({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label htmlFor="cost">Coût Unitaire (€) - Optionnel</Label>
-                <Input
-                  id="cost"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={moveForm.cost}
-                  onChange={(e) => setMoveForm({ ...moveForm, cost: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="supplier">Fournisseur / Motif</Label>
-                <Input
-                  id="supplier"
-                  placeholder="ex: Fournisseur SARL / Casse"
-                  value={moveForm.supplier}
-                  onChange={(e) => setMoveForm({ ...moveForm, supplier: e.target.value })}
-                />
-              </div>
+            <div className="space-y-1">
+              <Label htmlFor="supplier">Fournisseur / Motif</Label>
+              <Input
+                id="supplier"
+                placeholder="ex: Arrivage Conteneur / Inventaire mensuel"
+                value={moveForm.supplier}
+                onChange={(e) => setMoveForm({ ...moveForm, supplier: e.target.value })}
+              />
             </div>
 
             <DialogFooter className="pt-4">
@@ -796,7 +943,7 @@ export function ProductsClientPage({
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
               >
                 {isSubmitting ? "Enregistrement..." : "Valider le mouvement"}
               </Button>
@@ -813,22 +960,21 @@ export function ProductsClientPage({
               <History className="h-5 w-5 text-indigo-500" /> Historique de stock : {selectedProduct?.name}
             </DialogTitle>
             <DialogDescription>
-              Les 5 derniers mouvements de stock enregistrés pour cet article.
+              Derniers mouvements enregistrés pour ce produit.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             {selectedProduct?.recentMovements.length === 0 ? (
               <p className="text-center text-sm text-slate-400 py-6">Aucun mouvement de stock enregistré.</p>
             ) : (
-              <div className="rounded-md border border-slate-100 overflow-hidden">
+              <div className="rounded-md border border-slate-100 dark:border-slate-800 overflow-hidden">
                 <Table>
-                  <TableHeader className="bg-slate-50/50">
+                  <TableHeader className="bg-slate-50/50 dark:bg-slate-900/30">
                     <TableRow>
                       <TableHead>Date</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead className="text-center">Quantité</TableHead>
-                      <TableHead>Coût U.</TableHead>
-                      <TableHead>Fournisseur/Détail</TableHead>
+                      <TableHead>Motif / Fournisseur</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -839,10 +985,7 @@ export function ProductsClientPage({
                         </TableCell>
                         <TableCell>{getMovementTypeBadge(move.type)}</TableCell>
                         <TableCell className="text-center font-bold">{move.quantity}</TableCell>
-                        <TableCell className="text-slate-500">
-                          {move.cost ? `${move.cost} KMF` : "-"}
-                        </TableCell>
-                        <TableCell className="text-slate-600 font-medium truncate max-w-[150px]">
+                        <TableCell className="text-slate-600 dark:text-slate-400 font-medium truncate max-w-[180px]">
                           {move.supplier || "-"}
                         </TableCell>
                       </TableRow>

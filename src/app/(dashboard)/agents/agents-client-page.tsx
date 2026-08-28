@@ -67,6 +67,7 @@ interface Agent {
   id: string;
   name: string;
   email: string;
+  role?: string;
   createdAt: Date;
   prospectsCount: number;
   salesCount: number;
@@ -94,6 +95,7 @@ export function AgentsClientPage({
   const [agents, setAgents] = useState<Agent[]>(initialAgents);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "revenue" | "conversion" | "sales">("name");
+  const [roleFilter, setRoleFilter] = useState<string>("ALL");
 
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -107,7 +109,7 @@ export function AgentsClientPage({
   const [copied, setCopied] = useState(false);
 
   // Form states
-  const [addForm, setAddForm] = useState({ name: "", email: "", password: "" });
+  const [addForm, setAddForm] = useState({ name: "", email: "", password: "", role: "AGENT" });
   const [editForm, setEditForm] = useState({ name: "", email: "", role: "AGENT" });
 
   const isAdmin = currentUser.role === "ADMIN";
@@ -116,11 +118,16 @@ export function AgentsClientPage({
 
   // Filter and sort agents
   const filteredAgents = agents
-    .filter(
-      (agent) =>
+    .filter((agent) => {
+      const matchesSearch =
         agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        agent.email.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+        agent.email.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesRole =
+        roleFilter === "ALL" || (agent.role || "AGENT") === roleFilter;
+
+      return matchesSearch && matchesRole;
+    })
     .sort((a, b) => {
       if (sortBy === "name") return a.name.localeCompare(b.name);
       if (sortBy === "revenue") return b.totalRevenue - a.totalRevenue;
@@ -160,6 +167,7 @@ export function AgentsClientPage({
           id: res.agentId,
           name: addForm.name,
           email: addForm.email,
+          role: addForm.role,
           createdAt: new Date(),
           prospectsCount: 0,
           salesCount: 0,
@@ -176,7 +184,7 @@ export function AgentsClientPage({
         setCopied(false);
         setIsSuccessOpen(true);
         
-        setAddForm({ name: "", email: "", password: "" });
+        setAddForm({ name: "", email: "", password: "", role: "AGENT" });
         setIsAddOpen(false);
       } else {
         toast.error(res.error || "Une erreur est survenue.");
@@ -345,12 +353,27 @@ export function AgentsClientPage({
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
               <Input
-                placeholder="Rechercher un agent..."
+                placeholder="Rechercher par nom, email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-8 bg-background h-9 text-sm border-slate-200"
               />
             </div>
+            <Select
+              value={roleFilter}
+              onValueChange={(value) => setRoleFilter(value || "ALL")}
+            >
+              <SelectTrigger className="w-[170px] h-9 border-slate-200">
+                <SelectValue placeholder="Rôle" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Tous les rôles</SelectItem>
+                <SelectItem value="AGENT">Téléconseillers</SelectItem>
+                <SelectItem value="ECOMMERCANT">E-commerçants</SelectItem>
+                <SelectItem value="LEADER">Leaders</SelectItem>
+                <SelectItem value="STOCKISTE">Stockistes</SelectItem>
+              </SelectContent>
+            </Select>
             <Select
               value={sortBy}
               onValueChange={(value: any) => setSortBy(value)}
@@ -371,8 +394,8 @@ export function AgentsClientPage({
           {filteredAgents.length === 0 ? (
             <div className="text-center py-12 text-slate-400">
               <Users className="mx-auto h-12 w-12 text-slate-200 mb-3" />
-              <p className="font-medium text-sm">Aucun agent trouvé</p>
-              <p className="text-xs text-slate-400/80">Essayez d'ajuster votre recherche.</p>
+              <p className="font-medium text-sm">Aucun profil trouvé</p>
+              <p className="text-xs text-slate-400/80">Essayez d'ajuster vos filtres de recherche.</p>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 mt-2">
@@ -387,12 +410,39 @@ export function AgentsClientPage({
                         {agent.name.substring(0, 2).toUpperCase()}
                       </div>
                       <div>
-                        <CardTitle className="text-sm font-bold group-hover:text-indigo-600 transition-colors">
-                          {agent.name}
-                        </CardTitle>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <CardTitle className="text-sm font-bold group-hover:text-indigo-600 transition-colors">
+                            {agent.name}
+                          </CardTitle>
+                          {agent.role === "ECOMMERCANT" && (
+                            <span className="bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-950/50 dark:text-fuchsia-300 border border-fuchsia-200/60 dark:border-fuchsia-800/40 text-[9px] px-1.5 py-0.2 rounded-full font-bold">
+                              E-commerçant
+                            </span>
+                          )}
+                          {agent.role === "STOCKISTE" && (
+                            <span className="bg-teal-50 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300 border border-teal-200/60 dark:border-teal-800/40 text-[9px] px-1.5 py-0.2 rounded-full font-bold">
+                              Stockiste
+                            </span>
+                          )}
+                          {agent.role === "LEADER" && (
+                            <span className="bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/40 text-[9px] px-1.5 py-0.2 rounded-full font-bold">
+                              Leader
+                            </span>
+                          )}
+                          {(!agent.role || agent.role === "AGENT") && (
+                            <span className="bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/40 text-[9px] px-1.5 py-0.2 rounded-full font-bold">
+                              Téléconseiller
+                            </span>
+                          )}
+                        </div>
                         <CardDescription className="text-xs truncate max-w-[170px] flex items-center mt-0.5">
                           <Mail className="h-3 w-3 mr-1 text-slate-400" /> {agent.email}
                         </CardDescription>
+                        {agent.leaderName && (
+                          <div className="text-[10px] text-slate-500 mt-0.5">
+                            Leader : <span className="font-semibold text-slate-700 dark:text-slate-300">{agent.leaderName}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     {canManage && (
@@ -469,12 +519,31 @@ export function AgentsClientPage({
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Ajouter un nouveau commercial</DialogTitle>
+            <DialogTitle>Ajouter un commercial / vendeur</DialogTitle>
             <DialogDescription>
-              Créez un compte pour un nouvel agent. Un mot de passe sécurisé sera généré automatiquement.
+              Créez un compte pour un nouvel acteur. Un mot de passe sécurisé sera généré automatiquement.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddAgent} className="space-y-4 py-2">
+            {isAdmin && (
+              <div className="space-y-1">
+                <Label htmlFor="add-role">Type de compte / Rôle</Label>
+                <Select
+                  value={addForm.role}
+                  onValueChange={(val) => setAddForm({ ...addForm, role: val || "AGENT" })}
+                >
+                  <SelectTrigger id="add-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="AGENT">Téléconseiller (avec Leader)</SelectItem>
+                    <SelectItem value="ECOMMERCANT">E-commerçant indépendant</SelectItem>
+                    <SelectItem value="STOCKISTE">Stockiste (Fournisseur)</SelectItem>
+                    <SelectItem value="LEADER">Leader d'équipe</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1">
               <Label htmlFor="name">Nom complet</Label>
               <div className="relative">

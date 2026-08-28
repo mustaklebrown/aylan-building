@@ -30,6 +30,7 @@ const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> 
   ACCOUNTANT: { label: "Comptable", color: "text-blue-500", bg: "bg-blue-500/12 border-blue-500/20" },
   AGENT: { label: "Agent Commercial", color: "text-emerald-500", bg: "bg-emerald-500/12 border-emerald-500/20" },
   DELIVERY_ASSISTANT: { label: "Livraisons", color: "text-orange-500", bg: "bg-orange-500/12 border-orange-500/20" },
+  DELIVERY: { label: "Livreur", color: "text-teal-500", bg: "bg-teal-500/12 border-teal-500/20" },
 };
 
 export function ProfileClientPage({ user }: ProfileClientPageProps) {

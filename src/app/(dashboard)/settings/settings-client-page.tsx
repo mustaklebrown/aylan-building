@@ -100,6 +100,7 @@ const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> 
   ACCOUNTANT: { label: "Comptable", color: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
   LEADER: { label: "Leader", color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
   AGENT: { label: "Commercial", color: "#34d399", bg: "rgba(52,211,153,0.12)" },
+  DELIVERY: { label: "Livreur", color: "#34d399", bg: "rgba(52,211,153,0.12)" },
   DELIVERY_ASSISTANT: { label: "Livraisons", color: "#f97316", bg: "rgba(249,115,22,0.12)" },
 };
 
@@ -279,13 +280,13 @@ export function SettingsClientPage({
           users.map((u) =>
             u.id === selectedUser.id
               ? {
-                  ...u,
-                  name: editForm.name,
-                  email: editForm.email,
-                  role: editForm.role,
-                  leaderId: editForm.leaderId === "none" ? null : editForm.leaderId,
-                  leaderName: targetLeader ? targetLeader.name : null,
-                }
+                ...u,
+                name: editForm.name,
+                email: editForm.email,
+                role: editForm.role,
+                leaderId: editForm.leaderId === "none" ? null : editForm.leaderId,
+                leaderName: targetLeader ? targetLeader.name : null,
+              }
               : u
           )
         );
@@ -333,7 +334,7 @@ export function SettingsClientPage({
       if (res.success) {
         toast.success("Utilisateur supprimé.");
         setUsers(users.filter((u) => u.id !== selectedUser.id));
-        
+
         // If deleted user was a LEADER, remove from leadersList state
         if (selectedUser.role === "LEADER") {
           setLeadersList(leadersList.filter((l) => l.id !== selectedUser.id));
