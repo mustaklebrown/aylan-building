@@ -1,95 +1,47 @@
 # Guide des Rôles & Fonctionnalités — AYLAN GROUP
 
-Ce document décrit en détail les accès, droits et fonctionnalités disponibles pour chaque rôle utilisateur au sein de la plateforme web AYLAN GROUP.
+Ce document et les guides associés décrivent en détail les accès, droits, flux financiers et cas d'usage pour chaque rôle utilisateur au sein de la plateforme web **AYLAN GROUP**.
 
 ---
 
-## Table des Rôles
+## 📑 Sommaire & Liens vers les Guides Détaillés
 
-1. [Administrateur (ADMIN)](#1-administrateur-admin)
-2. [Comptable (ACCOUNTANT)](#2-comptable-accountant)
-3. [Leader (LEADER)](#3-leader-leader)
-4. [Agent Commercial / Téléconseiller (AGENT)](#4-agent-commercial--téléconseiller-agent)
-5. [Assistant Livraisons (DELIVERY_ASSISTANT)](#5-assistant-livraisons-delivery_assistant)
-
----
-
-## 1. Administrateur (ADMIN)
-
-L'administrateur possède un contrôle total sur la configuration de la plateforme, les produits et les utilisateurs.
-
-- **Gestion des Utilisateurs** :
-  - Créer, modifier et désactiver des comptes (Administrateurs, Comptables, Leaders, Agents, Assistant Livraisons).
-  - Assigner des agents commerciaux à un **Leader** spécifique pour structurer les équipes.
-- **Gestion des Produits** :
-  - Ajouter de nouveaux produits au catalogue global.
-  - Définir si un produit est **Commun** (accessible à tous les leaders et leurs agents) ou **Spécifique** (affecté à un leader unique).
-  - Configurer les prix d'achat, de vente, les commissions des agents et les seuils d'alerte de stock.
-- **Tableau de Bord Consolidé** :
-  - Visualiser le chiffre d'affaires global et le volume de ventes de l'entreprise.
-  - Consulter le tableau de performance de tous les agents de la plateforme (CA, ventes, prospects, taux de conversion).
-- **Suivi Comptable** :
-  - Accéder à la vue de répartition des gains entre leaders.
-  - Exporter toutes les transactions comptabilisées au format Excel/CSV.
+| N° | Rôle | Identifiant Code | Guide Complet |
+| :---: | :--- | :--- | :--- |
+| **-** | **Architecture & Vue d'Ensemble** | `GLOBAL` | [Guide Global des Rôles](file:///d:/aylan-building/docs/GUIDE_DES_ROLES.md) |
+| **1** | **Administrateur** | `ADMIN` | [01 - Guide Administrateur](file:///d:/aylan-building/docs/roles/01_ADMIN.md) |
+| **2** | **Stockiste** | `STOCKISTE` | [02 - Guide Stockiste](file:///d:/aylan-building/docs/roles/02_STOCKISTE.md) |
+| **3** | **Leader d'Équipe** | `LEADER` | [03 - Guide Leader d'Équipe](file:///d:/aylan-building/docs/roles/03_LEADER.md) |
+| **4** | **Téléconseiller / Agent** | `AGENT` | [04 - Guide Téléconseiller](file:///d:/aylan-building/docs/roles/04_AGENT.md) |
+| **5** | **E-commerçant Indépendant** | `ECOMMERCANT` | [05 - Guide E-commerçant](file:///d:/aylan-building/docs/roles/05_ECOMMERCANT.md) |
+| **6** | **Comptable** | `ACCOUNTANT` | [06 - Guide Comptable](file:///d:/aylan-building/docs/roles/06_ACCOUNTANT.md) |
+| **7** | **Assistant Livraisons** | `DELIVERY_ASSISTANT` | [07 - Guide Assistant Livraisons](file:///d:/aylan-building/docs/roles/07_DELIVERY_ASSISTANT.md) |
+| **8** | **Livreur Terrain** | `DELIVERY` | [08 - Guide Livreur Terrain](file:///d:/aylan-building/docs/roles/08_DELIVERY.md) |
 
 ---
 
-## 2. Comptable (ACCOUNTANT)
+## ⚡ Résumé Rapide du Fonctionnement
 
-Le comptable supervise les flux financiers, valide les commissions et gère les mouvements de stock physiques.
+### 1. Administrateur (`ADMIN`)
+Contrôle complet de la plateforme : création et gestion de tous les comptes, catalogue global, tableau de bord exécutif et logs d'audit.
 
-- **Comptabilité & Répartition des Gains** :
-  - Visualiser la répartition des gains entre les différents leaders de la plateforme.
-  - Calcul automatisé : les gains des produits communs sont divisés à parts égales entre les leaders, tandis que les gains des produits spécifiques sont attribués à 100 % au leader associé.
-  - Exporter l'ensemble du registre de ventes validées.
-- **Gestion des Commissions** :
-  - Consulter l'état des commissions générées par les agents commercials.
-  - Valider et marquer les commissions comme payées (**Réglées**).
-- **Contrôle des Stocks** :
-  - Enregistrer des mouvements de stock manuels (Entrées, Pertes, Dommages, Retours de marchandises).
-  - Consulter la valeur totale du stock (prix d'achat vs prix de vente).
+### 2. Stockiste (`STOCKISTE`)
+Propriétaire de stocks et fournisseur : ajoute ses produits, configure les 3 paliers de commissions (Agent, Leader, E-commerçant), gère les mouvements de stock et suit son revenu net.
 
----
+### 3. Leader (`LEADER`)
+Chef d'équipe commerciale : gère ses téléconseillers (`AGENT`), crée des produits spécifiques exclusifs à son équipe, perçoit des commissions d'encadrement et sa part des bénéfices communs.
 
-## 3. Leader (LEADER)
+### 4. Téléconseiller (`AGENT`)
+Commercial d'équipe : qualifie ses prospects dans le CRM, conclut des ventes pour les produits éligibles, perçoit des commissions de vente.
 
-Le leader gère sa propre équipe de commerciaux, ses produits dédiés, et suit ses gains financiers.
+### 5. E-commerçant (`ECOMMERCANT`)
+Vendeur indépendant : autonome sans chef d'équipe, bénéficie de commissions majorées directes sans prélèvement de commission Leader.
 
-- **Gestion d'Équipe Exclusive** :
-  - Créer et gérer des comptes de téléconseillers (rôle `AGENT`) rattachés directement à lui-même.
-  - Suivre les performances (KPIs, ventes, prospects, taux de conversion) de ses propres commerciaux uniquement.
-- **Gestion de Produits Spécifiques** :
-  - Ajouter des produits spécifiques exclusifs à sa propre équipe (non visibles par les autres leaders et leurs agents).
-- **Suivi CRM & Ventes** :
-  - Consulter les prospects (CRM) de ses agents et soumettre des ventes pour leur compte.
-- **Suivi de ses Gains** :
-  - Accéder à son espace comptabilité affichant ses gains nets cumulés (sa part égale des produits communs + 100% du bénéfice de ses produits spécifiques).
-  - Consulter les commissions générées par ses téléconseillers.
+### 6. Comptable (`ACCOUNTANT`)
+Supervision financière : valide et règle les commissions des commerciaux, contrôle la répartition des gains et valorise les stocks.
 
----
+### 7. Assistant Livraisons (`DELIVERY_ASSISTANT`)
+Superviseur logistique : organise les expéditions, filtre par ville/zone, génère les feuilles de route (runsheets) et bordereaux.
 
-## 4. Agent Commercial / Téléconseiller (AGENT)
-
-L'agent est centré sur la prospection et la conclusion des ventes avec les clients finaux.
-
-- **Gestion de son CRM** :
-  - Créer, qualifier et mettre à jour ses fiches prospects (Coordonnées, Source, Statut du tunnel de conversion).
-- **Prise de Commande & Enregistrement de Vente** :
-  - Enregistrer de nouvelles ventes pour ses clients.
-  - Sélectionner les produits éligibles (Produits Communs + Produits Spécifiques de son Leader associé).
-  - Configurer le mode de livraison (Retrait ou Livraison à domicile) et la ville.
-- **Tableau de Bord Personnel** :
-  - Visualiser ses propres statistiques (son Chiffre d'Affaires personnel, ses transactions conclues, ses commissions acquises).
-
----
-
-## 5. Assistant Livraisons (DELIVERY_ASSISTANT)
-
-L'assistant de direction s'occupe de la logistique de livraison des commandes validées.
-
-- **Supervision des Expéditions** :
-  - Consulter la liste de toutes les ventes de la plateforme.
-  - Filtrer les commandes nécessitant une expédition par ville ou type de livraison.
-- **Mise à jour des Statuts de Vente** :
-  - Mettre à jour le statut des commandes : _Confirmée_, _Expédiée_, puis _Livrée_ ou _Annulée_.
-  - La mise à jour au statut _Livrée_ déclenche la comptabilisation définitive de la vente pour le calcul des gains du leader et de la commission de l'agent.
+### 8. Livreur (`DELIVERY`)
+Livreur sur le terrain : interface mobile avec bouton disponibilité, alertes courses en direct, bouton appel/WhatsApp et validation de livraison.

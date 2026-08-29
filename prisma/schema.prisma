@@ -8,13 +8,13 @@ datasource db {
 
 // Better Auth Models
 model User {
-  id            String    @id
+  id            String    @id @default(cuid())
   name          String
-  email         String
-  emailVerified Boolean
+  email         String    @unique
+  emailVerified Boolean   @default(false)
   image         String?
-  createdAt     DateTime
-  updatedAt     DateTime
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
   sessions      Session[]
   accounts      Account[]
 

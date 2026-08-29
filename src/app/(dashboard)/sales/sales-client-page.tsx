@@ -102,11 +102,14 @@ interface ProductSelect {
   salePrice: number;
   stockAvailable: number;
   agentCommission: number;
+  ecommercantCommission?: number;
+  leaderCommission?: number;
 }
 
 interface AgentSelect {
   id: string;
   name: string;
+  role?: string;
 }
 
 interface ProspectSelect {
@@ -170,6 +173,7 @@ export function SalesClientPage({
 
   const canManageDelivery = currentUser.role === "ADMIN" || currentUser.role === "ACCOUNTANT" || currentUser.role === "DELIVERY_ASSISTANT";
   const isAgent = currentUser.role === "AGENT";
+  const isDirectSeller = currentUser.role === "AGENT" || currentUser.role === "ECOMMERCANT";
 
   // Filters
   const timeframeSales = filterByTimeframe(sales, timeframe);
@@ -246,6 +250,11 @@ export function SalesClientPage({
         // Optimistic append
         const activeProd = products.find((x) => x.id === addForm.productId);
         const activeAgent = agents.find((x) => x.id === addForm.agentId) || currentUser;
+        const assignedRole = activeAgent?.role || currentUser.role;
+        const sellerCommRate = assignedRole === "ECOMMERCANT"
+          ? (activeProd?.ecommercantCommission || 0)
+          : (activeProd?.agentCommission || 0);
+        const sellerCommTotal = sellerCommRate * addForm.quantity;
 
         const newSale: Sale = {
           id: res.saleId,
@@ -259,7 +268,8 @@ export function SalesClientPage({
           agentId: addForm.agentId,
           agentName: activeAgent?.name || "Agent",
           status: addForm.status,
-          commissionAmount: (activeProd?.agentCommission || 0) * addForm.quantity,
+          sellerCommission: sellerCommTotal,
+          commissionAmount: sellerCommTotal,
           commissionStatus: "PENDING",
           shippingType: addForm.shippingType,
           shippingCity: addForm.shippingType === "DELIVERY" ? addForm.shippingCity : undefined,
@@ -359,7 +369,11 @@ export function SalesClientPage({
   const formSelectedProd = products.find((p) => p.id === addForm.productId);
   const formTotalPrice = (addForm.price > 0 ? addForm.price : (formSelectedProd?.salePrice || 0)) * addForm.quantity;
   const formTotalTransaction = formTotalPrice + addForm.shippingFee;
-  const formTotalCommission = (formSelectedProd?.agentCommission || 0) * addForm.quantity;
+  const formCommissionRate =
+    currentUser.role === "ECOMMERCANT"
+      ? formSelectedProd?.ecommercantCommission || 0
+      : formSelectedProd?.agentCommission || 0;
+  const formTotalCommission = formCommissionRate * addForm.quantity;
 
   return (
     <div className="flex flex-col space-y-6">
@@ -773,12 +787,12 @@ export function SalesClientPage({
               </div>
             )}
 
-            {!isAgent && (
+            {!isDirectSeller && agents.length > 0 && (
               <div className="space-y-1">
-                <Label htmlFor="agentId">Affecter à l'agent commercial</Label>
+                <Label htmlFor="agentId">Affecter au commercial</Label>
                 <Select
                   value={addForm.agentId}
-                  onValueChange={(val) => setAddForm({ ...addForm, agentId: val || "" })}
+                  onValueChange={(val) => setAddForm({ ...addForm, agentId: val || currentUser.id })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Choisir un commercial" />
@@ -786,7 +800,7 @@ export function SalesClientPage({
                   <SelectContent>
                     {agents.map((a) => (
                       <SelectItem key={a.id} value={a.id}>
-                        {a.name}
+                        {a.name} ({a.role})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -811,8 +825,16 @@ export function SalesClientPage({
                   <span className="font-extrabold text-indigo-600 dark:text-indigo-400">{formatCurrency(formTotalTransaction)}</span>
                 </div>
                 <div className="flex justify-between font-medium text-[10px] text-emerald-600 pt-1">
-                  <span>Commission Téléconseiller :</span>
-                  <span className="font-bold">{formatCurrency(formTotalCommission)}</span>
+                  <span>
+                    {currentUser.role === "ECOMMERCANT" ? "Commission E-commerçant :" : "Commission Téléconseiller :"}
+                  </span>
+                  <span className="font-bold">
+                    {formatCurrency(
+                      currentUser.role === "ECOMMERCANT"
+                        ? (formSelectedProd.ecommercantCommission || 0) * addForm.quantity
+                        : (formSelectedProd.agentCommission || 0) * addForm.quantity
+                    )}
+                  </span>
                 </div>
               </Card>
             )}

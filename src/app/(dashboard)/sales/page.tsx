@@ -38,16 +38,19 @@ export default async function SalesPage() {
       salePrice: true,
       stockAvailable: true,
       agentCommission: true,
+      ecommercantCommission: true,
+      leaderCommission: true,
     },
   });
 
   // Fetch active agents list for registration assignment (only Admin/Accountant use this)
   const agents = await prisma.user.findMany({
-    where: { role: "AGENT" },
+    where: { role: { in: ["AGENT", "ECOMMERCANT", "LEADER"] } },
     orderBy: { name: "asc" },
     select: {
       id: true,
       name: true,
+      role: true,
     },
   });
 

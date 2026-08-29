@@ -161,11 +161,22 @@ export async function createSaleAction(data: {
     targetSellerId = data.agentId || user.id;
   }
 
+  const quantity = Math.max(1, Math.floor(Number(data.quantity) || 1));
+  const shippingFee = Math.max(0, Number(data.shippingFee) || 0);
+
+  if (!data.productId || typeof data.productId !== 'string' || data.productId.trim() === '') {
+    return { success: false, error: 'Veuillez sélectionner un produit valide.' };
+  }
+
+  if (!data.customerName || typeof data.customerName !== 'string' || data.customerName.trim() === '') {
+    return { success: false, error: 'Veuillez renseigner le nom du client.' };
+  }
+
   try {
     const result = await prisma.$transaction(async (tx) => {
       // 1. Get product
       const product = await tx.product.findUnique({
-        where: { id: data.productId },
+        where: { id: data.productId.trim() },
       });
 
       if (!product) {
@@ -177,25 +188,33 @@ export async function createSaleAction(data: {
       }
 
       // 2. Validate stock
-      if (product.stockAvailable < data.quantity) {
+      if (product.stockAvailable < quantity) {
         throw new Error(
           `Stock insuffisant pour ce produit (Disponible: ${product.stockAvailable}).`,
         );
       }
 
       // 3. Get seller user
-      const seller = await tx.user.findUnique({
+      let seller = await tx.user.findUnique({
         where: { id: targetSellerId },
         select: { id: true, name: true, role: true, leaderId: true },
       });
+
+      if (!seller && targetSellerId !== user.id) {
+        seller = await tx.user.findUnique({
+          where: { id: user.id },
+          select: { id: true, name: true, role: true, leaderId: true },
+        });
+        targetSellerId = user.id;
+      }
 
       if (!seller) {
         throw new Error('Vendeur non trouvé.');
       }
 
       const sellerRole = seller.role === 'ECOMMERCANT' ? 'ECOMMERCANT' : 'AGENT';
-      const salePrice = data.price ?? product.salePrice;
-      const totalSaleGross = salePrice * data.quantity;
+      const salePrice = Number(data.price ?? product.salePrice) || product.salePrice;
+      const totalSaleGross = salePrice * quantity;
 
       // 4. Calculate Commissions & Stockiste Revenue
       let sellerCommission = 0;
@@ -204,58 +223,88 @@ export async function createSaleAction(data: {
 
       if (sellerRole === 'ECOMMERCANT') {
         // Independent E-commerçant: no leader, higher commission
-        sellerCommission = (product.ecommercantCommission || 0) * data.quantity;
+        sellerCommission = (product.ecommercantCommission || 0) * quantity;
         leaderCommission = 0;
         leaderId = null;
       } else {
         // Téléconseiller: attached to leader
-        sellerCommission = (product.agentCommission || 0) * data.quantity;
-        leaderId = seller.leaderId || null;
-        if (leaderId) {
-          leaderCommission = (product.leaderCommission || 0) * data.quantity;
+        sellerCommission = (product.agentCommission || 0) * quantity;
+        if (seller.leaderId) {
+          const leaderExists = await tx.user.findUnique({
+            where: { id: seller.leaderId },
+            select: { id: true },
+          });
+          if (leaderExists) {
+            leaderId = seller.leaderId;
+            leaderCommission = (product.leaderCommission || 0) * quantity;
+          }
         }
       }
 
       const stockisteRevenue = Math.max(0, totalSaleGross - sellerCommission - leaderCommission);
 
+      // Validate prospect if provided
+      let validProspectId: string | null = null;
+      if (data.prospectId && data.prospectId !== 'none' && data.prospectId.trim() !== '') {
+        const existingProspect = await tx.prospect.findUnique({
+          where: { id: data.prospectId },
+          select: { id: true },
+        });
+        if (existingProspect) {
+          validProspectId = existingProspect.id;
+        }
+      }
+
+      // Validate stockiste owner if provided
+      let validStockisteId: string | null = null;
+      if (product.stockisteId) {
+        const stockisteExists = await tx.user.findUnique({
+          where: { id: product.stockisteId },
+          select: { id: true },
+        });
+        if (stockisteExists) {
+          validStockisteId = stockisteExists.id;
+        }
+      }
+
       // 5. Create Sale with immutable snapshots
       const sale = await tx.sale.create({
         data: {
-          productId: data.productId,
-          quantity: data.quantity,
+          productId: product.id,
+          quantity: quantity,
           price: salePrice,
-          customerName: data.customerName,
-          agentId: targetSellerId,
-          prospectId: data.prospectId || null,
+          customerName: data.customerName.trim(),
+          agentId: seller.id,
+          prospectId: validProspectId,
           status: data.status || 'PENDING',
           sellerRole: sellerRole,
           leaderId: leaderId,
-          stockisteId: product.stockisteId || null,
+          stockisteId: validStockisteId,
           sellerCommission: sellerCommission,
           leaderCommission: leaderCommission,
           stockisteRevenue: stockisteRevenue,
           shippingType: data.shippingType || 'PICKUP',
           shippingCity: data.shippingCity || null,
           shippingAddress: data.shippingAddress || null,
-          shippingFee: data.shippingFee ?? 0,
+          shippingFee: shippingFee,
         },
       });
 
       // 6. Deduct stock & record stock movement
       await tx.product.update({
-        where: { id: data.productId },
+        where: { id: product.id },
         data: {
           stockAvailable: {
-            decrement: data.quantity,
+            decrement: quantity,
           },
         },
       });
 
       await tx.stockMovement.create({
         data: {
-          productId: data.productId,
+          productId: product.id,
           type: 'OUT_SALE',
-          quantity: data.quantity,
+          quantity: quantity,
           cost: product.purchasePrice,
           supplier: `Vente N° ${sale.id} (${sellerRole}: ${seller.name})`,
         },
@@ -292,11 +341,15 @@ export async function createSaleAction(data: {
       }
 
       // 8. If linked to a prospect, update their status to CLIENT
-      if (data.prospectId) {
-        await tx.prospect.update({
-          where: { id: data.prospectId },
-          data: { status: 'CLIENT' },
-        });
+      if (validProspectId) {
+        try {
+          await tx.prospect.update({
+            where: { id: validProspectId },
+            data: { status: 'CLIENT' },
+          });
+        } catch (prospectErr) {
+          console.warn('Could not update prospect status:', prospectErr);
+        }
       }
 
       return { sale };
@@ -328,15 +381,19 @@ export async function createSaleAction(data: {
     }
 
     // Audit Log
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: 'CREATE_SALE',
-        entity: 'sale',
-        entityId: result.sale.id,
-        details: `Vente enregistrée par ${user.name} : ${data.customerName} - ${data.quantity}x (${result.sale.price * data.quantity} KMF). Commission vendeur: ${result.sale.sellerCommission} KMF, Leader: ${result.sale.leaderCommission} KMF, Stockiste net: ${result.sale.stockisteRevenue} KMF`,
-      },
-    });
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: 'CREATE_SALE',
+          entity: 'sale',
+          entityId: result.sale.id,
+          details: `Vente enregistrée par ${user.name} : ${data.customerName} - ${quantity}x (${result.sale.price * quantity} KMF). Commission vendeur: ${result.sale.sellerCommission} KMF, Leader: ${result.sale.leaderCommission} KMF, Stockiste net: ${result.sale.stockisteRevenue} KMF`,
+        },
+      });
+    } catch (auditErr) {
+      console.error('Error creating audit log:', auditErr);
+    }
 
     revalidatePath('/sales');
     revalidatePath('/products');
@@ -594,12 +651,14 @@ export async function claimDeliveryAction(saleId: string) {
       return { success: false, error: 'Cette livraison est déjà prise en charge par un autre livreur.' };
     }
 
+    const newStatus = sale.status === 'PENDING' ? 'CONFIRMED' : sale.status;
+
     await prisma.$transaction(async (tx) => {
       await tx.sale.update({
         where: { id: saleId },
         data: {
           driverId: user.id,
-          status: sale.status === 'PENDING' ? 'CONFIRMED' : sale.status,
+          status: newStatus,
         },
       });
 
@@ -610,16 +669,53 @@ export async function claimDeliveryAction(saleId: string) {
         });
       }
 
-      const usersToNotify = await tx.user.findMany({
-        where: {
-          OR: [
-            { role: 'DELIVERY_ASSISTANT' },
-            { id: sale.agentId },
-          ],
-        },
+      // Ensure commissions are created if the sale transitioned from PENDING to CONFIRMED
+      if (sale.status === 'PENDING' && newStatus === 'CONFIRMED') {
+        const existingCommissions = await tx.commission.findMany({
+          where: { saleId },
+        });
+
+        if (existingCommissions.length === 0) {
+          if (sale.sellerCommission > 0) {
+            await tx.commission.create({
+              data: {
+                saleId,
+                agentId: sale.agentId,
+                role: sale.sellerRole || 'AGENT',
+                amount: sale.sellerCommission,
+                status: 'PENDING',
+              },
+            });
+          }
+
+          if (sale.leaderId && sale.leaderCommission > 0) {
+            await tx.commission.create({
+              data: {
+                saleId,
+                agentId: sale.leaderId,
+                role: 'LEADER',
+                amount: sale.leaderCommission,
+                status: 'PENDING',
+              },
+            });
+          }
+        }
+      }
+    });
+
+    // Safely send notifications outside transaction
+    try {
+      const orConditions: any[] = [{ role: 'DELIVERY_ASSISTANT' }];
+      if (sale.agentId) {
+        orConditions.push({ id: sale.agentId });
+      }
+
+      const usersToNotify = await prisma.user.findMany({
+        where: { OR: orConditions },
       });
+
       for (const u of usersToNotify) {
-        await tx.notification.create({
+        await prisma.notification.create({
           data: {
             userId: u.id,
             title: '📦 Livreur assigné',
@@ -627,7 +723,24 @@ export async function claimDeliveryAction(saleId: string) {
           },
         });
       }
-    });
+    } catch (notifErr) {
+      console.error('Error sending claim notifications:', notifErr);
+    }
+
+    // Audit log
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: 'CLAIM_DELIVERY',
+          entity: 'sale',
+          entityId: saleId,
+          details: `Livraison N° ${saleId} prise en charge par ${user.name} (${user.role})`,
+        },
+      });
+    } catch (auditErr) {
+      console.error('Error creating audit log:', auditErr);
+    }
 
     revalidatePath('/deliveries');
     revalidatePath('/sales');
@@ -668,11 +781,15 @@ export async function rejectDeliveryAction(saleId: string) {
           where: { id: user.id },
           data: { isAvailable: true },
         });
-        const assistants = await tx.user.findMany({
+      });
+
+      // Safely send notifications outside transaction
+      try {
+        const assistants = await prisma.user.findMany({
           where: { role: 'DELIVERY_ASSISTANT' },
         });
         for (const a of assistants) {
-          await tx.notification.create({
+          await prisma.notification.create({
             data: {
               userId: a.id,
               title: '⚠️ Livraison refusée',
@@ -680,16 +797,22 @@ export async function rejectDeliveryAction(saleId: string) {
             },
           });
         }
-      });
+      } catch (notifErr) {
+        console.error('Error sending reject notifications:', notifErr);
+      }
     }
 
-    await prisma.notification.updateMany({
-      where: {
-        userId: user.id,
-        read: false,
-      },
-      data: { read: true },
-    });
+    try {
+      await prisma.notification.updateMany({
+        where: {
+          userId: user.id,
+          read: false,
+        },
+        data: { read: true },
+      });
+    } catch (notifErr) {
+      console.error('Error updating driver notifications:', notifErr);
+    }
 
     revalidatePath('/deliveries');
     revalidatePath('/sales');
