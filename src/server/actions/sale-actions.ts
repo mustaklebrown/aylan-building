@@ -139,7 +139,7 @@ export async function createSaleAction(data: {
   productId: string;
   quantity: number;
   price?: number;
-  customerName: string;
+  customerName?: string;
   agentId?: string;
   prospectId?: string;
   status?: string;
@@ -168,9 +168,10 @@ export async function createSaleAction(data: {
     return { success: false, error: 'Veuillez sélectionner un produit valide.' };
   }
 
-  if (!data.customerName || typeof data.customerName !== 'string' || data.customerName.trim() === '') {
-    return { success: false, error: 'Veuillez renseigner le nom du client.' };
-  }
+  const resolvedCustomerName =
+    data.customerName && typeof data.customerName === 'string' && data.customerName.trim() !== ''
+      ? data.customerName.trim()
+      : 'Client de passage';
 
   try {
     const result = await prisma.$transaction(async (tx) => {
@@ -273,7 +274,7 @@ export async function createSaleAction(data: {
           productId: product.id,
           quantity: quantity,
           price: salePrice,
-          customerName: data.customerName.trim(),
+          customerName: resolvedCustomerName,
           agentId: seller.id,
           prospectId: validProspectId,
           status: data.status || 'PENDING',
@@ -371,7 +372,7 @@ export async function createSaleAction(data: {
             data: {
               userId: targetUser.id,
               title: '🚚 Nouvelle livraison disponible',
-              message: `Commande N° ${result.sale.id.slice(-6).toUpperCase()} (${data.customerName}) en attente d'un livreur à ${data.shippingCity || 'Moroni'}.`,
+              message: `Commande N° ${result.sale.id.slice(-6).toUpperCase()} (${resolvedCustomerName}) en attente d'un livreur à ${data.shippingCity || 'Moroni'}.`,
             },
           });
         }
@@ -388,7 +389,7 @@ export async function createSaleAction(data: {
           action: 'CREATE_SALE',
           entity: 'sale',
           entityId: result.sale.id,
-          details: `Vente enregistrée par ${user.name} : ${data.customerName} - ${quantity}x (${result.sale.price * quantity} KMF). Commission vendeur: ${result.sale.sellerCommission} KMF, Leader: ${result.sale.leaderCommission} KMF, Stockiste net: ${result.sale.stockisteRevenue} KMF`,
+          details: `Vente enregistrée par ${user.name} : ${resolvedCustomerName} - ${quantity}x (${result.sale.price * quantity} KMF). Commission vendeur: ${result.sale.sellerCommission} KMF, Leader: ${result.sale.leaderCommission} KMF, Stockiste net: ${result.sale.stockisteRevenue} KMF`,
         },
       });
     } catch (auditErr) {

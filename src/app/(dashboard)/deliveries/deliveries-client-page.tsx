@@ -61,12 +61,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  updateDeliveryStatusAction,
-  toggleDriverAvailabilityAction,
+  getAvailableDeliveriesAction,
   claimDeliveryAction,
   rejectDeliveryAction,
-  getAvailableDeliveriesAction,
+  toggleDriverAvailabilityAction,
+  updateDeliveryStatusAction,
 } from "@/server/actions/sale-actions";
+import { InvoiceModal } from "@/components/invoice/invoice-modal";
 import { formatCurrency, formatDate } from "@/lib/format-utils";
 import { exportToCSV } from "@/lib/export-utils";
 
@@ -145,6 +146,7 @@ export function DeliveriesClientPage({
   const [activeSlip, setActiveSlip] = useState<SaleDelivery | null>(null);
   const [runsheetOpen, setRunsheetOpen] = useState(false);
   const [detailCard, setDetailCard] = useState<SaleDelivery | null>(null);
+  const [activeInvoice, setActiveInvoice] = useState<SaleDelivery | null>(null);
 
   // NEW: Incoming delivery alert (mobile banner)
   const [incomingDelivery, setIncomingDelivery] = useState<SaleDelivery | null>(null);
@@ -1133,7 +1135,7 @@ export function DeliveriesClientPage({
                     </div>
                   </div>
 
-                  {/* Contact buttons */}
+                  {/* Contact & Facture buttons */}
                   <div className="flex gap-2">
                     <a href={`tel:${detailCard.customerPhone}`} className="flex-1 h-11 rounded-xl flex items-center justify-center gap-2 text-[13px] font-bold active:scale-95 transition-all" style={{ background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.2)", color: "#3b82f6" }}>
                       <Phone className="h-4 w-4" /> Appeler
@@ -1143,6 +1145,17 @@ export function DeliveriesClientPage({
                         <MessageCircle className="h-4 w-4" /> WhatsApp
                       </a>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = detailCard;
+                        setDetailCard(null);
+                        setActiveInvoice(d);
+                      }}
+                      className="px-3 h-11 rounded-xl flex items-center justify-center gap-1.5 text-xs font-bold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 active:scale-95 transition-all"
+                    >
+                      <FileText className="h-4 w-4" /> Facture
+                    </button>
                   </div>
                 </div>
 
@@ -1262,12 +1275,30 @@ export function DeliveriesClientPage({
               <div className="text-[9px] text-slate-400 bg-slate-50 p-2.5 rounded border text-center">Merci ! Aylan Group - Qualité et Service.</div>
             </div>
           )}
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 flex-col sm:flex-row">
             <Button variant="outline" onClick={() => setActiveSlip(null)}>Fermer</Button>
-            <Button onClick={() => window.print()} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"><Printer className="h-4 w-4" /> Imprimer</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const s = activeSlip;
+                setActiveSlip(null);
+                setActiveInvoice(s);
+              }}
+              className="gap-1.5 border-indigo-200 text-indigo-600 dark:border-indigo-800 dark:text-indigo-400 hover:bg-indigo-50"
+            >
+              <FileText className="h-4 w-4" /> Voir Facture
+            </Button>
+            <Button onClick={() => window.print()} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"><Printer className="h-4 w-4" /> Imprimer Bordereau</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Invoice Modal */}
+      <InvoiceModal
+        isOpen={activeInvoice !== null}
+        onClose={() => setActiveInvoice(null)}
+        invoice={activeInvoice}
+      />
     </div>
   );
 }

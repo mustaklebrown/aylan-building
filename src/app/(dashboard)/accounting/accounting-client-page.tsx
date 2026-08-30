@@ -36,9 +36,11 @@ import {
   Download,
   ArrowUpRight,
   ArrowDownRight,
+  FileText,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/format-utils";
 import { exportToCSV } from "@/lib/export-utils";
+import { InvoiceModal } from "@/components/invoice/invoice-modal";
 
 interface LeaderSummary {
   id: string;
@@ -96,6 +98,7 @@ export function AccountingClientPage({
 }: AccountingClientPageProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [activeInvoice, setActiveInvoice] = useState<any | null>(null);
 
   const isLeader = currentUser.role === "LEADER";
 
@@ -380,12 +383,13 @@ export function AccountingClientPage({
                   <TableHead className="text-right">Coût</TableHead>
                   <TableHead className="text-right">Commission</TableHead>
                   <TableHead className="text-right">Gain Net</TableHead>
+                  <TableHead className="text-right">Facture</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredSales.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-slate-400 text-sm">
+                    <TableCell colSpan={11} className="text-center py-8 text-slate-400 text-sm">
                       Aucune vente validée trouvée.
                     </TableCell>
                   </TableRow>
@@ -432,6 +436,29 @@ export function AccountingClientPage({
                           {s.gain >= 0 ? "+" : ""}{formatCurrency(s.gain)}
                         </span>
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setActiveInvoice({
+                              id: s.id,
+                              date: s.date,
+                              customerName: s.customerName,
+                              productName: s.productName,
+                              quantity: s.quantity,
+                              price: s.revenue / (s.quantity || 1),
+                              totalAmount: s.revenue,
+                              agentName: s.agentName,
+                              status: s.status,
+                            })
+                          }
+                          className="h-7 text-xs font-semibold gap-1 border-indigo-200 text-indigo-600 dark:border-indigo-800 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50"
+                        >
+                          <FileText className="h-3 w-3" />
+                          <span>Facture</span>
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -440,6 +467,13 @@ export function AccountingClientPage({
           </div>
         </CardContent>
       </Card>
+
+      {/* Invoice Modal */}
+      <InvoiceModal
+        isOpen={activeInvoice !== null}
+        onClose={() => setActiveInvoice(null)}
+        invoice={activeInvoice}
+      />
     </div>
   );
 }
