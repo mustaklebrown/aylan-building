@@ -15,6 +15,10 @@ import {
   Contact,
   Truck,
   Calculator,
+  User as UserIcon,
+  Mail,
+  Shield,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -408,43 +412,134 @@ export function Header({ user }: HeaderProps) {
 
         {/* User Dropdown */}
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" className="relative h-8 w-8 rounded-full" />}>
-            <Avatar className="h-8 w-8">
-              {user?.image ? (
-                <AvatarImage src={user.image} alt={user.name} />
-              ) : null}
-              <AvatarFallback className="bg-indigo-600 text-white font-bold text-xs">{initials}</AvatarFallback>
-            </Avatar>
+          <DropdownMenuTrigger
+            render={
+              <button
+                type="button"
+                className="flex items-center gap-2 p-1 pl-1.5 pr-2.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-all border border-slate-200/80 dark:border-slate-800/80 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              />
+            }
+          >
+            <div className="relative">
+              <Avatar className="h-8 w-8 ring-2 ring-indigo-600/20 shadow-xs">
+                {user?.image ? (
+                  <AvatarImage src={user.image} alt={user.name} />
+                ) : null}
+                <AvatarFallback className="bg-gradient-to-br from-indigo-600 to-indigo-700 text-white font-bold text-xs">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
+            </div>
+            <div className="hidden md:flex flex-col text-left">
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight max-w-[120px] truncate">
+                {user?.name || "Utilisateur"}
+              </span>
+              <span className="text-[10px] text-slate-400 font-medium leading-none mt-0.5">
+                {roleInfo.label}
+              </span>
+            </div>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" align="end" >
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-bold leading-none font-heading">{user?.name || "Utilisateur"}</p>
-                <p className="text-xs leading-none text-muted-foreground">
-                  {user?.email || "user@aylangroup.com"}
-                </p>
-                <p className="text-[10px] uppercase font-bold text-indigo-500 leading-none mt-1">
-                  {user?.role || "AGENT"}
-                </p>
+
+          <DropdownMenuContent className="w-72 p-2 rounded-2xl shadow-xl border border-slate-200/80 dark:border-slate-800" align="end">
+            {/* Header info utilisateur */}
+            <div className="p-3 bg-gradient-to-br from-indigo-50/80 via-slate-50 to-purple-50/40 dark:from-slate-900 dark:via-slate-900/90 dark:to-indigo-950/30 rounded-xl border border-indigo-100/60 dark:border-slate-800/80 mb-1 space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Avatar className="h-11 w-11 ring-2 ring-indigo-600/30 shrink-0">
+                    {user?.image ? (
+                      <AvatarImage src={user.image} alt={user.name} />
+                    ) : null}
+                    <AvatarFallback className="bg-gradient-to-br from-indigo-600 to-indigo-700 text-white font-black text-sm">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-black text-slate-900 dark:text-white truncate">
+                    {user?.name || "Utilisateur"}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1 font-mono">
+                    <Mail className="h-3 w-3 text-slate-400 shrink-0" />
+                    <span className="truncate">{user?.email || "user@aylan.com"}</span>
+                  </p>
+                </div>
               </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem >
-              <Link href="/settings" className="cursor-pointer w-full">
-                Profil & Paramètres
-              </Link>
-            </DropdownMenuItem>
-            {user?.role === "ADMIN" && (
-              <DropdownMenuItem >
-                <Link href="/settings" className="cursor-pointer w-full">
-                  Paramètres
-                </Link>
+
+              <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/60 dark:border-slate-800 text-[11px]">
+                <span className="text-slate-500 font-medium">Rôle actif</span>
+                <span
+                  className="px-2.5 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-wider"
+                  style={{ color: roleInfo.color, backgroundColor: roleInfo.bg }}
+                >
+                  {roleInfo.label}
+                </span>
+              </div>
+            </div>
+
+            <DropdownMenuSeparator className="my-1.5" />
+
+            {/* Menu Items */}
+            <div className="space-y-0.5 text-xs font-medium">
+              <DropdownMenuItem
+                onClick={() => router.push("/profile")}
+                className="flex items-center gap-2.5 p-2 rounded-lg cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-slate-700 dark:text-slate-200 hover:text-indigo-600 transition-colors"
+              >
+                <UserIcon className="h-4 w-4 text-indigo-500" />
+                <span className="flex-1 font-medium">Mon Profil & Coordonnées</span>
+                <ChevronRight className="h-3.5 w-3.5 text-slate-300 dark:text-slate-600" />
               </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer">
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Déconnexion</span>
+
+              {(user?.role === "AGENT" || user?.role === "ECOMMERCANT" || user?.role === "LEADER" || user?.role === "ADMIN") && (
+                <DropdownMenuItem
+                  onClick={() => router.push("/commissions")}
+                  className="flex items-center gap-2.5 p-2 rounded-lg cursor-pointer hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-slate-700 dark:text-slate-200 hover:text-emerald-600 transition-colors"
+                >
+                  <Banknote className="h-4 w-4 text-emerald-500" />
+                  <span className="flex-1 font-medium">Mes Gains & Commissions</span>
+                  <ChevronRight className="h-3.5 w-3.5 text-slate-300 dark:text-slate-600" />
+                </DropdownMenuItem>
+              )}
+
+              {(user?.role === "DELIVERY" || user?.role === "DELIVERY_ASSISTANT" || user?.role === "ADMIN") && (
+                <DropdownMenuItem
+                  onClick={() => router.push("/deliveries")}
+                  className="flex items-center gap-2.5 p-2 rounded-lg cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-950/40 text-slate-700 dark:text-slate-200 hover:text-amber-600 transition-colors"
+                >
+                  <Truck className="h-4 w-4 text-amber-500" />
+                  <span className="flex-1 font-medium">Expéditions & Livraisons</span>
+                  <ChevronRight className="h-3.5 w-3.5 text-slate-300 dark:text-slate-600" />
+                </DropdownMenuItem>
+              )}
+
+              <DropdownMenuItem
+                onClick={() => router.push("/sales")}
+                className="flex items-center gap-2.5 p-2 rounded-lg cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-950/40 text-slate-700 dark:text-slate-200 hover:text-purple-600 transition-colors"
+              >
+                <ShoppingCart className="h-4 w-4 text-purple-500" />
+                <span className="flex-1 font-medium">Suivi des Ventes</span>
+                <ChevronRight className="h-3.5 w-3.5 text-slate-300 dark:text-slate-600" />
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={() => router.push("/settings")}
+                className="flex items-center gap-2.5 p-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+              >
+                <Settings className="h-4 w-4 text-slate-500" />
+                <span className="flex-1 font-medium">Paramètres de compte</span>
+                <ChevronRight className="h-3.5 w-3.5 text-slate-300 dark:text-slate-600" />
+              </DropdownMenuItem>
+            </div>
+
+            <DropdownMenuSeparator className="my-1.5" />
+
+            <DropdownMenuItem
+              onClick={handleLogout}
+              className="flex items-center gap-2.5 p-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 cursor-pointer font-bold text-xs"
+            >
+              <LogOut className="h-4 w-4 text-red-500" />
+              <span>Se déconnecter</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
