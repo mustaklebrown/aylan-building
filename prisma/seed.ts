@@ -8,18 +8,10 @@ async function seed() {
       { email: 'admin@aylan.com', name: 'Admin Principal', role: 'ADMIN' },
       { email: 'accountant@aylan.com', name: 'Comptable Global', role: 'ACCOUNTANT' },
       { email: 'stockiste@aylan.com', name: 'Stockiste Central (M. Oussama)', role: 'STOCKISTE' },
-      { email: 'stockiste2@aylan.com', name: 'Stockiste Moroni Ouest', role: 'STOCKISTE' },
       { email: 'leader@aylan.com', name: 'Leader Aylan (Équipe Nord)', role: 'LEADER' },
-      { email: 'leader2@aylan.com', name: 'Leader Sud (Équipe Sud)', role: 'LEADER' },
       {
         email: 'agent@aylan.com',
         name: 'Téléconseiller Ahmed',
-        role: 'AGENT',
-        leaderEmail: 'leader@aylan.com',
-      },
-      {
-        email: 'agent2@aylan.com',
-        name: 'Téléconseillère Fatima',
         role: 'AGENT',
         leaderEmail: 'leader@aylan.com',
       },
@@ -29,17 +21,11 @@ async function seed() {
         role: 'ECOMMERCANT',
       },
       {
-        email: 'ecom2@aylan.com',
-        name: 'E-commerçant Samy (Direct Sale)',
-        role: 'ECOMMERCANT',
-      },
-      {
         email: 'delivery@aylan.com',
         name: 'Assistant Direction Livraison',
         role: 'DELIVERY_ASSISTANT',
       },
       { email: 'driver@aylan.com', name: 'Livreur Moroni Centre', role: 'DELIVERY' },
-      { email: 'driver2@aylan.com', name: 'Livreur Nord/Sud', role: 'DELIVERY' },
     ];
 
     // First pass: create all users and update roles
