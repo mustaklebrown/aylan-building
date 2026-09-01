@@ -28,7 +28,10 @@ interface ProfileClientPageProps {
 const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   ADMIN: { label: "Administrateur", color: "text-[#F3C442]", bg: "bg-[#F3C442]/12 border-[#F3C442]/20" },
   ACCOUNTANT: { label: "Comptable", color: "text-blue-500", bg: "bg-blue-500/12 border-blue-500/20" },
+  LEADER: { label: "Leader", color: "text-purple-500", bg: "bg-purple-500/12 border-purple-500/20" },
   AGENT: { label: "Agent Commercial", color: "text-emerald-500", bg: "bg-emerald-500/12 border-emerald-500/20" },
+  ECOMMERCANT: { label: "E-commerçant", color: "text-pink-500", bg: "bg-pink-500/12 border-pink-500/20" },
+  STOCKISTE: { label: "Stockiste", color: "text-cyan-500", bg: "bg-cyan-500/12 border-cyan-500/20" },
   DELIVERY_ASSISTANT: { label: "Livraisons", color: "text-orange-500", bg: "bg-orange-500/12 border-orange-500/20" },
   DELIVERY: { label: "Livreur", color: "text-teal-500", bg: "bg-teal-500/12 border-teal-500/20" },
 };

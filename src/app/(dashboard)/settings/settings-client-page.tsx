@@ -100,6 +100,8 @@ const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> 
   ACCOUNTANT: { label: "Comptable", color: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
   LEADER: { label: "Leader", color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
   AGENT: { label: "Commercial", color: "#34d399", bg: "rgba(52,211,153,0.12)" },
+  ECOMMERCANT: { label: "E-commerçant", color: "#ec4899", bg: "rgba(236,72,153,0.12)" },
+  STOCKISTE: { label: "Stockiste", color: "#06b6d4", bg: "rgba(6,182,212,0.12)" },
   DELIVERY: { label: "Livreur", color: "#34d399", bg: "rgba(52,211,153,0.12)" },
   DELIVERY_ASSISTANT: { label: "Livraisons", color: "#f97316", bg: "rgba(249,115,22,0.12)" },
 };
@@ -572,6 +574,7 @@ export function SettingsClientPage({
                       <SelectItem value="ACCOUNTANT">Comptables</SelectItem>
                       <SelectItem value="LEADER">Leaders</SelectItem>
                       <SelectItem value="AGENT">Commerciaux</SelectItem>
+                      <SelectItem value="ECOMMERCANT">E-commerçants</SelectItem>
                       <SelectItem value="DELIVERY_ASSISTANT">Livreurs</SelectItem>
                     </SelectContent>
                   </Select>
@@ -821,6 +824,7 @@ export function SettingsClientPage({
                   <SelectItem value="ACCOUNTANT">Comptable</SelectItem>
                   <SelectItem value="LEADER">Leader d'équipe</SelectItem>
                   <SelectItem value="AGENT">Téléconseiller / Agent Commercial</SelectItem>
+                  <SelectItem value="ECOMMERCANT">E-commerçant</SelectItem>
                   <SelectItem value="DELIVERY_ASSISTANT">Assistant Livraisons</SelectItem>
                 </SelectContent>
               </Select>
@@ -969,6 +973,7 @@ export function SettingsClientPage({
                   <SelectItem value="ACCOUNTANT">Comptable</SelectItem>
                   <SelectItem value="LEADER">Leader d'équipe</SelectItem>
                   <SelectItem value="AGENT">Téléconseiller / Agent Commercial</SelectItem>
+                  <SelectItem value="ECOMMERCANT">E-commerçant</SelectItem>
                   <SelectItem value="DELIVERY_ASSISTANT">Assistant Livraisons</SelectItem>
                 </SelectContent>
               </Select>
