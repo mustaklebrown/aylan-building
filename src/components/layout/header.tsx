@@ -535,10 +535,11 @@ export function Header({ user }: HeaderProps) {
             <DropdownMenuSeparator className="my-1.5" />
 
             <DropdownMenuItem
+              variant="destructive"
               onClick={handleLogout}
-              className="flex items-center gap-2.5 p-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 cursor-pointer font-bold text-xs"
+              className="flex items-center gap-2.5 p-2 rounded-lg cursor-pointer font-bold text-xs"
             >
-              <LogOut className="h-4 w-4 text-red-500" />
+              <LogOut className="h-4 w-4" />
               <span>Se déconnecter</span>
             </DropdownMenuItem>
           </DropdownMenuContent>

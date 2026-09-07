@@ -198,3 +198,55 @@
     padding: 0 !important;
   }
 }
+
+/* Professional Form Styling */
+
+/* Hide native number input spinners for a cleaner look */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Polished scrollbar for select dropdowns and form containers */
+[data-slot="select-content"],
+[data-slot="dropdown-menu-content"] {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+}
+
+[data-slot="select-content"]::-webkit-scrollbar,
+[data-slot="dropdown-menu-content"]::-webkit-scrollbar {
+  width: 6px;
+}
+
+[data-slot="select-content"]::-webkit-scrollbar-track,
+[data-slot="dropdown-menu-content"]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-slot="select-content"]::-webkit-scrollbar-thumb,
+[data-slot="dropdown-menu-content"]::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.3);
+  border-radius: 999px;
+}
+
+.dark [data-slot="select-content"]::-webkit-scrollbar-thumb,
+.dark [data-slot="dropdown-menu-content"]::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.15);
+}
+
+/* Form field group subtle glow effect on focus-within */
+.form-section:focus-within {
+  border-color: rgba(99, 102, 241, 0.2);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.04);
+}
+
+.dark .form-section:focus-within {
+  border-color: rgba(99, 102, 241, 0.15);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.06);
+}
