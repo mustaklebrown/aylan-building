@@ -5,7 +5,7 @@ import { getCommissionsAction } from "@/server/actions/commission-actions";
 import { CommissionsClientPage } from "./commissions-client-page";
 
 export const metadata = {
-  title: "Registre des Commissions - AYLAN GROUP",
+  title: "Registre des Commissions - Dig e-com",
   description: "Suivi des commissions par commercial et validation des paiements comptables.",
 };
 

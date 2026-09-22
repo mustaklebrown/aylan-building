@@ -6,7 +6,7 @@ import { getSalesAction } from "@/server/actions/sale-actions";
 import { SalesClientPage } from "./sales-client-page";
 
 export const metadata = {
-  title: "Suivi des Ventes - AYLAN GROUP",
+  title: "Suivi des Ventes - Dig e-com",
   description: "Enregistrement des ventes et suivi des expéditions de colis.",
 };
 

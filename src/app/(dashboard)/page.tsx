@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 import { DashboardClientPage } from "./dashboard-client-page";
 
 export const metadata = {
-  title: "Tableau de Bord - AYLAN GROUP",
+  title: "Tableau de Bord - Dig e-com",
   description: "Rapports financiers, suivi des stocks, ventes et commissions.",
 };
 

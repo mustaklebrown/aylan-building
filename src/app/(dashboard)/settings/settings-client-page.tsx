@@ -96,7 +96,7 @@ interface SettingsClientPageProps {
 }
 
 const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
-  ADMIN: { label: "Administrateur", color: "#F3C442", bg: "rgba(243,196,66,0.12)" },
+  ADMIN: { label: "Administrateur", color: "#FFA800", bg: "rgba(255,168,0,0.15)" },
   ACCOUNTANT: { label: "Comptable", color: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
   LEADER: { label: "Leader", color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
   AGENT: { label: "Commercial", color: "#34d399", bg: "rgba(52,211,153,0.12)" },
@@ -449,7 +449,7 @@ export function SettingsClientPage({
                 </div>
               </CardContent>
               <div className="bg-slate-50/50 dark:bg-slate-900/10 px-4 py-3 rounded-b-xl border-t border-slate-100/80 dark:border-slate-800/40 text-[11px] text-slate-400 text-center">
-                AYLAN GROUP • Espace de travail sécurisé
+                DIG E-COM • Espace de travail sécurisé
               </div>
             </Card>
 
@@ -786,7 +786,7 @@ export function SettingsClientPage({
                 <Input
                   id="email"
                   type="email"
-                  placeholder="jean.dupont@aylan.com"
+                  placeholder="jean.dupont@digecom.com"
                   value={addForm.email}
                   onChange={(e) => setAddForm({ ...addForm, email: e.target.value })}
                   className="pl-8"

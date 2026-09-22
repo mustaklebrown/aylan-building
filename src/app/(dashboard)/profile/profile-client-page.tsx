@@ -26,7 +26,7 @@ interface ProfileClientPageProps {
 }
 
 const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
-  ADMIN: { label: "Administrateur", color: "text-[#F3C442]", bg: "bg-[#F3C442]/12 border-[#F3C442]/20" },
+  ADMIN: { label: "Administrateur", color: "text-[#FFA800]", bg: "bg-[#FFA800]/15 border-[#FFA800]/25" },
   ACCOUNTANT: { label: "Comptable", color: "text-blue-500", bg: "bg-blue-500/12 border-blue-500/20" },
   LEADER: { label: "Leader", color: "text-purple-500", bg: "bg-purple-500/12 border-purple-500/20" },
   AGENT: { label: "Agent Commercial", color: "text-emerald-500", bg: "bg-emerald-500/12 border-emerald-500/20" },
@@ -133,7 +133,7 @@ export function ProfileClientPage({ user }: ProfileClientPageProps) {
             </div>
           </CardContent>
           <div className="bg-slate-50/50 dark:bg-slate-900/10 px-4 py-3 rounded-b-xl border-t border-slate-100/80 dark:border-slate-800/40 text-[11px] text-slate-400 text-center">
-            AYLAN GROUP • Espace de travail sécurisé
+            DIG E-COM • Espace de travail sécurisé
           </div>
         </Card>
 

@@ -5,7 +5,7 @@ import { getAgentDetailAction } from "@/server/actions/agent-actions";
 import { AgentDetailClientPage } from "./agent-detail-client-page";
 
 export const metadata = {
-  title: "KPI Téléconseiller - AYLAN GROUP",
+  title: "KPI Téléconseiller - Dig e-com",
   description: "Détails de performance commerciale de l'agent.",
 };
 

@@ -80,7 +80,7 @@ const navItems = [
 ];
 
 const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
-  ADMIN: { label: "Administrateur", color: "#F3C442", bg: "rgba(243,196,66,0.12)" },
+  ADMIN: { label: "Administrateur", color: "#FFA800", bg: "rgba(255,168,0,0.15)" },
   ACCOUNTANT: { label: "Comptable", color: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
   LEADER: { label: "Leader", color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
   AGENT: { label: "Téléconseiller", color: "#34d399", bg: "rgba(52,211,153,0.12)" },
@@ -106,7 +106,7 @@ export function Sidebar({ user }: SidebarProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const role = user?.role || "AGENT";
-  const roleInfo = ROLE_LABELS[role] ?? { label: role, color: "#F3C442", bg: "rgba(243,196,66,0.12)" };
+  const roleInfo = ROLE_LABELS[role] ?? { label: role, color: "#FFA800", bg: "rgba(255,168,0,0.15)" };
   const filteredNavItems = navItems.filter((item) => item.roles.includes(role));
 
   const handleLogout = async () => {
@@ -132,21 +132,21 @@ export function Sidebar({ user }: SidebarProps) {
     <aside
       className="fixed inset-y-0 left-0 z-50 hidden md:flex w-64 flex-col"
       style={{
-        background: "linear-gradient(180deg, #0B1626 0%, #0F1D33 100%)",
-        borderRight: "1px solid rgba(255,255,255,0.07)",
+        background: "linear-gradient(180deg, #050D21 0%, #09173D 100%)",
+        borderRight: "1px solid rgba(255,255,255,0.08)",
       }}
     >
       {/* ── Logo header ── */}
       <div
-        className="flex h-16 items-center justify-center px-5"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+        className="flex h-16 items-center justify-center px-4"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
       >
         <Image
           src="/logo.jpeg"
-          alt="Aylan Group"
+          alt="Dig e-com"
           width={130}
-          height={52}
-          className="rounded-lg object-contain"
+          height={50}
+          className="rounded-lg object-contain drop-shadow-[0_2px_12px_rgba(11,61,245,0.35)]"
           priority
         />
       </div>
@@ -156,7 +156,7 @@ export function Sidebar({ user }: SidebarProps) {
         {/* Group label */}
         <p
           className="px-3 mb-2 text-[10px] font-bold uppercase tracking-widest"
-          style={{ color: "rgba(255,255,255,0.25)" }}
+          style={{ color: "rgba(255,255,255,0.3)" }}
         >
           Navigation
         </p>
@@ -170,22 +170,22 @@ export function Sidebar({ user }: SidebarProps) {
               className={cn(
                 "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
                 isActive
-                  ? "text-[#0F1D33]"
-                  : "text-white/50 hover:text-white hover:bg-white/5"
+                  ? "text-[#060F26] font-semibold"
+                  : "text-white/60 hover:text-white hover:bg-white/10"
               )}
               style={
                 isActive
-                  ? { background: "#F3C442", boxShadow: "0 2px 12px rgba(243,196,66,0.25)" }
+                  ? { background: "linear-gradient(135deg, #FFA800 0%, #FFBA24 100%)", boxShadow: "0 4px 14px rgba(255,168,0,0.35)" }
                   : {}
               }
             >
               <item.icon
                 className="h-4 w-4 shrink-0 transition-transform group-hover:scale-110"
-                style={isActive ? { color: "#0F1D33" } : {}}
+                style={isActive ? { color: "#060F26" } : {}}
               />
               <span className="flex-1">{item.title}</span>
               {isActive && (
-                <ChevronRight className="h-3 w-3 opacity-60" style={{ color: "#0F1D33" }} />
+                <ChevronRight className="h-3 w-3 opacity-70" style={{ color: "#060F26" }} />
               )}
             </Link>
           );

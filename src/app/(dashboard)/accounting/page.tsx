@@ -5,7 +5,7 @@ import { getAccountingAction } from "@/server/actions/accounting-actions";
 import { AccountingClientPage } from "./accounting-client-page";
 
 export const metadata = {
-  title: "Comptabilité & Répartition - AYLAN GROUP",
+  title: "Comptabilité & Répartition - Dig e-com",
   description: "Suivi des gains, répartition entre leaders et comptabilité globale.",
 };
 

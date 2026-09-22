@@ -5,7 +5,7 @@ import { getAgentsAction } from "@/server/actions/agent-actions";
 import { AgentsClientPage } from "./agents-client-page";
 
 export const metadata = {
-  title: "Gestion des Téléconseillers - AYLAN GROUP",
+  title: "Gestion des Téléconseillers - Dig e-com",
   description: "Liste et suivi des KPI de l'équipe commerciale.",
 };
 

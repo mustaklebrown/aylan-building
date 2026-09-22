@@ -6,7 +6,7 @@ import { getLeadersAction } from "@/server/actions/accounting-actions";
 import { SettingsClientPage } from "./settings-client-page";
 
 export const metadata = {
-  title: "Paramètres & Profil - AYLAN GROUP",
+  title: "Paramètres & Profil - Dig e-com",
   description: "Gérer votre profil personnel, la sécurité, et les paramètres du portail.",
 };
 

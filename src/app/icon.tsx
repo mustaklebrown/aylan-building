@@ -17,22 +17,23 @@ export default function Icon() {
       // ImageResponse JSX element
       <div
         style={{
-          fontSize: 16,
-          background: '#0F1D33', // Deep Navy Blue
-          color: '#FFFFFF', // White for A
+          fontSize: 14,
+          background: '#0B3DF5', // Dig Electric Blue
+          color: '#FFFFFF',
           width: '100%',
           height: '100%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          borderRadius: '50%', // Round shape
+          borderRadius: '50%',
           fontWeight: 900,
           fontFamily: 'sans-serif',
-          border: '2px solid #F3C442', // Yellow/Gold border to match the line
+          border: '2px solid #FFA800', // Yellow/Gold border
+          letterSpacing: '-0.5px',
         }}
       >
-        <span style={{ color: '#FFFFFF' }}>A</span>
-        <span style={{ color: '#F3C442' }}>G</span>
+        <span style={{ color: '#FFFFFF' }}>D</span>
+        <span style={{ color: '#FFA800' }}>ig</span>
       </div>
     ),
     // ImageResponse options

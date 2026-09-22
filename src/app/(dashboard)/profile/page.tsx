@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { ProfileClientPage } from "@/app/(dashboard)/profile/profile-client-page";
 
 export const metadata = {
-  title: "Mon Profil - AYLAN GROUP",
+  title: "Mon Profil - Dig e-com",
   description: "Gérer vos informations de profil et modifier votre mot de passe.",
 };
 

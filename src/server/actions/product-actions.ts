@@ -455,3 +455,74 @@ export async function getStockistesAction() {
     return { success: false, error: error.message, stockistes: [] };
   }
 }
+
+export async function deleteProductAction(productId: string) {
+  const user = await checkAuth();
+  const role = user.role || "AGENT";
+
+  if (role !== "ADMIN" && role !== "ACCOUNTANT") {
+    return {
+      success: false,
+      error: "Seuls l'Administrateur ou le Comptable sont autorisés à supprimer un produit.",
+    };
+  }
+
+  try {
+    const existing = await prisma.product.findUnique({
+      where: { id: productId },
+    });
+
+    if (!existing) {
+      return { success: false, error: "Produit introuvable." };
+    }
+
+    const salesCount = await prisma.sale.count({
+      where: { productId },
+    });
+
+    if (salesCount > 0) {
+      return {
+        success: false,
+        error: `Impossible de supprimer ce produit car ${salesCount} vente(s) y sont rattachée(s). Vous pouvez le désactiver pour bloquer les futures ventes.`,
+      };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Supprimer les mouvements de stock associés
+      await tx.stockMovement.deleteMany({
+        where: { productId },
+      });
+
+      // 2. Supprimer les assignations aux vendeurs
+      await tx.productAssignment.deleteMany({
+        where: { productId },
+      });
+
+      // 3. Supprimer le produit
+      await tx.product.delete({
+        where: { id: productId },
+      });
+
+      // 4. Trace d'audit
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "DELETE_PRODUCT",
+          entity: "product",
+          entityId: productId,
+          details: `Suppression définitive du produit ${existing.name} (SKU: ${existing.sku}) par ${user.name} (${role})`,
+        },
+      });
+    });
+
+    revalidatePath("/products");
+    revalidatePath("/");
+    return {
+      success: true,
+      message: `Le produit "${existing.name}" a été supprimé avec succès.`,
+    };
+  } catch (error: any) {
+    console.error("Error deleting product:", error);
+    return { success: false, error: error.message };
+  }
+}

@@ -173,7 +173,7 @@ export function CommissionsClientPage({
         c.amount,
         c.status === "PAID" ? "Payee" : "En attente",
       ],
-      "commissions_aylan"
+      "commissions_digecom"
     );
   };
 

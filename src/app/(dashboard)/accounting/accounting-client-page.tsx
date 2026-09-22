@@ -148,7 +148,7 @@ export function AccountingClientPage({
         s.gain,
         s.status,
       ],
-      "comptabilite_aylan"
+      "comptabilite_digecom"
     );
   };
 

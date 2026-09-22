@@ -53,12 +53,14 @@ import {
   ToggleRight,
   ShieldCheck,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   createProductAction,
   recordStockMovementAction,
   toggleProductActiveAction,
+  deleteProductAction,
 } from "@/server/actions/product-actions";
 import { formatCurrency, formatDate } from "@/lib/format-utils";
 import { exportToCSV } from "@/lib/export-utils";
@@ -129,6 +131,9 @@ export function ProductsClientPage({
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isMoveOpen, setIsMoveOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -347,6 +352,32 @@ export function ProductsClientPage({
     setIsHistoryOpen(true);
   };
 
+  const openDeleteModal = (product: Product) => {
+    setProductToDelete(product);
+    setIsDeleteOpen(true);
+  };
+
+  const handleDeleteProduct = async () => {
+    if (!productToDelete) return;
+    setIsDeleting(true);
+
+    try {
+      const res = await deleteProductAction(productToDelete.id);
+      if (res.success) {
+        toast.success(res.message || "Produit supprimé avec succès.");
+        setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
+        setIsDeleteOpen(false);
+        setProductToDelete(null);
+      } else {
+        toast.error(res.error || "Erreur lors de la suppression du produit.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erreur réseau.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const getMovementTypeBadge = (type: string) => {
     switch (type) {
       case "IN":
@@ -403,7 +434,7 @@ export function ProductsClientPage({
           p.name,
           p.sku,
           p.category,
-          p.stockisteName || "Direct Aylan",
+          p.stockisteName || "Direct Dig e-com",
           p.purchasePrice,
           p.salePrice,
           p.agentCommission,
@@ -413,7 +444,7 @@ export function ProductsClientPage({
           p.isActive ? "ACTIF" : "DÉSACTIVÉ",
         ];
 
-    exportToCSV(filteredProducts, headers, mapRow, "produits_aylan");
+    exportToCSV(filteredProducts, headers, mapRow, "produits_digecom");
   };
 
   return (
@@ -617,7 +648,7 @@ export function ProductsClientPage({
                             📦 {p.stockisteName}
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-slate-400 text-[10px]">Aylan Group</Badge>
+                          <Badge variant="outline" className="text-slate-400 text-[10px]">Dig e-com</Badge>
                         )}
                       </TableCell>
                       {!isAgent && !isEcommercant && (
@@ -679,15 +710,28 @@ export function ProductsClientPage({
                       )}
 
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openHistoryModal(p)}
-                          className="h-8 w-8 hover:text-indigo-600"
-                          title="Historique des stocks"
-                        >
-                          <History className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openHistoryModal(p)}
+                            className="h-8 w-8 hover:text-indigo-600"
+                            title="Historique des stocks"
+                          >
+                            <History className="h-4 w-4" />
+                          </Button>
+                          {isAdminOrAccountant && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openDeleteModal(p)}
+                              className="h-8 w-8 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                              title="Supprimer ce produit (Admin / Comptable)"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -998,6 +1042,63 @@ export function ProductsClientPage({
           <DialogFooter>
             <Button type="button" onClick={() => setIsHistoryOpen(false)}>
               Fermer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Modal (Admin & Accountant) */}
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600">
+              <Trash2 className="h-5 w-5" /> Supprimer le produit
+            </DialogTitle>
+            <DialogDescription>
+              Cette action supprimera définitivement cet article du catalogue et ses mouvements de stock associés.
+            </DialogDescription>
+          </DialogHeader>
+
+          {productToDelete && (
+            <div className="py-4 space-y-3">
+              <div className="p-3.5 rounded-lg border border-rose-200 bg-rose-50/50 dark:bg-rose-950/20 text-sm space-y-1">
+                <p className="font-bold text-slate-800 dark:text-slate-200">
+                  {productToDelete.name}
+                </p>
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <span>SKU: <strong className="font-mono">{productToDelete.sku}</strong></span>
+                  <span>•</span>
+                  <span>Stock: {productToDelete.stockAvailable}</span>
+                  <span>•</span>
+                  <span>Prix: {formatCurrency(productToDelete.salePrice)}</span>
+                </div>
+              </div>
+              <p className="text-xs text-slate-500">
+                Êtes-vous certain de vouloir retirer ce produit du catalogue ?
+              </p>
+            </div>
+          )}
+
+          <DialogFooter className="flex sm:justify-between gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsDeleteOpen(false);
+                setProductToDelete(null);
+              }}
+              disabled={isDeleting}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteProduct}
+              disabled={isDeleting}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              {isDeleting ? "Suppression en cours..." : "Confirmer la suppression"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -389,7 +389,7 @@ export function DeliveriesClientPage({
       filteredSales,
       ["ID Commande", "Date", "Client", "Telephone", "WhatsApp", "Produit", "SKU", "Quantite", "Prix Unitaire (KMF)", "Frais de Livraison (KMF)", "Total (KMF)", "Agent", "Statut Livraison", "Mode de Distribution", "Region", "Adresse Detaillee"],
       (s) => [s.id, formatDate(s.date), s.customerName, s.customerPhone, s.customerWhatsapp || "", s.productName, s.productSku, s.quantity, s.price, s.shippingFee, s.totalAmount, s.agentName, s.status, s.shippingType, s.shippingCity || "", s.shippingAddress || ""],
-      "livraisons_aylan"
+      "livraisons_digecom"
     );
   };
 
@@ -771,8 +771,8 @@ export function DeliveriesClientPage({
         <div className="hidden print:block fixed inset-0 bg-white text-black p-8 z-[9999] overflow-y-auto">
           <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4 mb-6">
             <div>
-              <h1 className="text-2xl font-black tracking-tight">AYLAN GROUP</h1>
-              <p className="text-xs text-slate-500 font-medium">Moroni Magoudjou, Grande Comore</p>
+              <h1 className="text-2xl font-black tracking-tight">DIG E-COM</h1>
+              <p className="text-xs text-slate-500 font-medium">Centrale Logistique & Livraisons</p>
               <p className="text-xs text-slate-500">Contact: +269 333-33-33</p>
             </div>
             <div className="text-right">
@@ -1018,7 +1018,7 @@ export function DeliveriesClientPage({
                               <span className="text-xs text-slate-500 truncate block sm:inline">{s.shippingAddress}</span>
                             </div>
                           ) : (
-                            <span className="text-xs text-slate-400 italic">Moroni (Aylan Building)</span>
+                            <span className="text-xs text-slate-400 italic">Moroni (Dig e-com)</span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -1244,7 +1244,7 @@ export function DeliveriesClientPage({
             <div className="border border-slate-200 rounded-xl p-6 space-y-4 bg-white text-slate-900 shadow-sm">
               <div className="flex justify-between items-start border-b pb-4">
                 <div>
-                  <h3 className="font-black tracking-tight">AYLAN GROUP</h3>
+                  <h3 className="font-black tracking-tight">DIG E-COM</h3>
                   <p className="text-[10px] text-slate-500 font-medium">BORDEREAU DE LIVRAISON</p>
                 </div>
                 <div className="text-right font-mono text-xs">
@@ -1272,7 +1272,7 @@ export function DeliveriesClientPage({
                   <div className="flex justify-between p-3 font-bold bg-indigo-50/50 text-indigo-900 text-sm"><span>TOTAL</span><span>{activeSlip.totalAmount} KMF</span></div>
                 </div>
               </div>
-              <div className="text-[9px] text-slate-400 bg-slate-50 p-2.5 rounded border text-center">Merci ! Aylan Group - Qualité et Service.</div>
+              <div className="text-[9px] text-slate-400 bg-slate-50 p-2.5 rounded border text-center">Merci ! Dig e-com - Qualité et Service.</div>
             </div>
           )}
           <DialogFooter className="gap-2 flex-col sm:flex-row">

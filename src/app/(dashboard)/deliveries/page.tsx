@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 import { DeliveriesClientPage } from "./deliveries-client-page";
 
 export const metadata = {
-  title: "Gestion des Livraisons - AYLAN GROUP",
+  title: "Gestion des Livraisons - Dig e-com",
   description: "Portail de suivi et gestion des expéditions et retraits de colis.",
 };
 

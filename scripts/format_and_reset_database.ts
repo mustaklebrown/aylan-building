@@ -162,70 +162,10 @@ async function resetAndFormatDatabase() {
       console.log('   ✓ Téléconseiller (agent@aylan.com) rattaché au Leader (leader@aylan.com)');
     }
 
-    // 6. Seed clean initial products catalogue owned by Stockiste
-    console.log('\n📦 Initialisation du catalogue produits propre...');
-    const stockisteId = emailToId['stockiste@aylan.com'];
-
-    const initialProducts = [
-      {
-        name: 'Pack Énergie Solaire 100W',
-        sku: 'SOL-100W-01',
-        category: 'Énergie & Maison',
-        description: 'Panneau photovoltaïque haute efficacité avec contrôleur de charge inclus.',
-        purchasePrice: 25000,
-        salePrice: 45000,
-        agentCommission: 3000,
-        ecommercantCommission: 6000,
-        leaderCommission: 1500,
-        stockAvailable: 50,
-        alertThreshold: 5,
-        stockisteId: stockisteId,
-        allowAllEcommercants: true,
-        allowAllLeaders: true,
-        isActive: true,
-      },
-      {
-        name: 'Kit Domotique & Sécurité Caméra HD',
-        sku: 'SEC-CAM-HD',
-        category: 'Sécurité & High-Tech',
-        description: 'Caméra connectée rotative avec vision nocturne et détection intelligente.',
-        purchasePrice: 15000,
-        salePrice: 29000,
-        agentCommission: 2500,
-        ecommercantCommission: 4500,
-        leaderCommission: 1000,
-        stockAvailable: 30,
-        alertThreshold: 5,
-        stockisteId: stockisteId,
-        allowAllEcommercants: true,
-        allowAllLeaders: true,
-        isActive: true,
-      },
-      {
-        name: 'Ventilateur Rechargeable Solaire 16"',
-        sku: 'VENT-SOL-16',
-        category: 'Maison & Confort',
-        description: 'Ventilateur puissant avec batterie intégrée 12h d\'autonomie et port USB.',
-        purchasePrice: 18000,
-        salePrice: 32000,
-        agentCommission: 2000,
-        ecommercantCommission: 4000,
-        leaderCommission: 1000,
-        stockAvailable: 40,
-        alertThreshold: 8,
-        stockisteId: stockisteId,
-        allowAllEcommercants: true,
-        allowAllLeaders: true,
-        isActive: true,
-      },
-    ];
-
-    for (const prod of initialProducts) {
-      const created = await prisma.product.create({
-        data: prod,
-      });
-      console.log(`   ✓ Produit ajouté : ${created.name} (${created.stockAvailable} en stock)`);
-    }
+    // 6. Catalogue produits 100% vide pour démarrage à zéro avec les produits réels
+    console.log('\n📦 Catalogue produits : 0 produit (Table vidée, prêt pour vos produits réels)');
+    console.log('   ✓ Tous les anciens produits de démonstration et de test ont été supprimés.');
+    console.log('   ✓ Le stockiste ou l\'administrateur peut créer les produits réels directement depuis l\'interface.');
 
     console.log('\n================================================================');
     console.log('✅ BASE DE DONNÉES RÉINITIALISÉE AVEC SUCCÈS !');

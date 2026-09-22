@@ -2,13 +2,13 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Aylan Building',
-    short_name: 'Aylan',
-    description: 'Dashboard de gestion commerciale et de stock',
+    name: 'Dig e-com',
+    short_name: 'Dig e-com',
+    description: 'Plateforme de gestion commerciale, stocks et livraisons',
     start_url: '/',
     display: 'standalone',
-    background_color: '#0F1D33',
-    theme_color: '#0F1D33',
+    background_color: '#060F26',
+    theme_color: '#0B3DF5',
     orientation: 'portrait-primary',
     icons: [
       {

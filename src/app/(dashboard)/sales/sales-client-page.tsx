@@ -366,7 +366,7 @@ export function SalesClientPage({
         sale.commissionAmount,
         sale.commissionStatus,
       ],
-      "ventes_aylan"
+      "ventes_digecom"
     );
   };
 

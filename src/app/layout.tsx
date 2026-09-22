@@ -21,12 +21,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Aylan Group Dashboard",
-  description: "Dashboard de gestion commerciale et de stock",
+  title: "Dig e-com Dashboard",
+  description: "Plateforme de gestion commerciale, stocks et livraisons - Dig e-com",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Aylan Group",
+    title: "Dig e-com",
   },
 };
 

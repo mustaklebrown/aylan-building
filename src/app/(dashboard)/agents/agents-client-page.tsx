@@ -565,7 +565,7 @@ export function AgentsClientPage({
                 <Input
                   id="email"
                   type="email"
-                  placeholder="j.dupont@aylangroup.com"
+                  placeholder="j.dupont@digecom.com"
                   value={addForm.email}
                   onChange={(e) => setAddForm({ ...addForm, email: e.target.value })}
                   className="pl-8"

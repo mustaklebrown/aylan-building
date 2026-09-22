@@ -93,7 +93,7 @@ export function InvoiceModal({ isOpen, onClose, invoice }: InvoiceModalProps) {
             </Badge>
           </div>
           <DialogDescription className="text-xs text-slate-500">
-            Document certifié édité pour la comptabilité et l'administration AYLAN GROUP.
+            Document certifié édité pour la comptabilité et l'administration DIG E-COM.
           </DialogDescription>
         </DialogHeader>
 
@@ -106,27 +106,29 @@ export function InvoiceModal({ isOpen, onClose, invoice }: InvoiceModalProps) {
           {/* Header de l'entreprise */}
           <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b border-slate-200 pb-5">
             <div>
-              <div className="flex items-center gap-2">
-                <div className="h-9 w-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-sm">
-                  A
-                </div>
+              <div className="flex items-center gap-3">
+                <img
+                  src="/logo.jpeg"
+                  alt="Dig e-com"
+                  className="h-11 w-11 rounded-lg object-contain shadow-sm border border-slate-100"
+                />
                 <div>
-                  <h1 className="text-xl font-black tracking-tight text-slate-900">AYLAN GROUP</h1>
-                  <p className="text-[11px] font-semibold text-indigo-600 tracking-wide uppercase">
-                    Centrale Commerciale & Logistique
+                  <h1 className="text-xl font-black tracking-tight text-slate-900">DIG E-COM</h1>
+                  <p className="text-[11px] font-bold text-[#0B3DF5] tracking-wide uppercase">
+                    Centrale Commerciale & Logistique E-commerce
                   </p>
                 </div>
               </div>
               <p className="text-xs text-slate-500 mt-2 leading-relaxed">
                 Moroni, Grande Comore • Union des Comores<br />
                 Tél : +269 333 00 00 / +269 444 00 00<br />
-                Email : contact@aylangroup.com
+                Email : contact@digecom.com
               </p>
             </div>
 
             <div className="sm:text-right bg-slate-50 p-3 rounded-lg border border-slate-100 w-full sm:w-auto">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Facture N°</span>
-              <span className="text-base font-black text-indigo-600 font-mono">{invoiceNumber}</span>
+              <span className="text-base font-black text-[#0B3DF5] font-mono">{invoiceNumber}</span>
               <div className="text-xs text-slate-500 mt-1 space-y-0.5">
                 <p>Date : <strong>{formatDate(invoice.date)}</strong></p>
                 <p>Échéance : <strong>À réception</strong></p>
@@ -214,7 +216,7 @@ export function InvoiceModal({ isOpen, onClose, invoice }: InvoiceModalProps) {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-2">
             <div className="space-y-1 text-xs text-slate-500">
               <p className="flex items-center gap-1 text-emerald-700 font-semibold text-[11px]">
-                <ShieldCheck className="h-3.5 w-3.5" /> Paiement sécurisé & Garantie AYLAN GROUP
+                <ShieldCheck className="h-3.5 w-3.5" /> Paiement sécurisé & Garantie DIG E-COM
               </p>
               <p className="text-[10px] text-slate-400">
                 TVA non applicable - Article Régime PME / Produits enregistrés
@@ -232,9 +234,9 @@ export function InvoiceModal({ isOpen, onClose, invoice }: InvoiceModalProps) {
                   <span>{formatCurrency(shippingFee)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-sm font-black border-t border-slate-200 pt-2 text-indigo-900">
+              <div className="flex justify-between text-sm font-black border-t border-slate-200 pt-2 text-[#0B3DF5]">
                 <span>NET À PAYER :</span>
-                <span className="text-base text-indigo-600 font-black">{formatCurrency(total)}</span>
+                <span className="text-base text-[#0B3DF5] font-black">{formatCurrency(total)}</span>
               </div>
             </div>
           </div>
@@ -243,12 +245,12 @@ export function InvoiceModal({ isOpen, onClose, invoice }: InvoiceModalProps) {
           <div className="border-t border-dashed border-slate-200 pt-4 flex justify-between items-end">
             <div className="text-[10px] text-slate-400 leading-tight">
               Merci pour votre confiance !<br />
-              Pour toute réclamation : service.client@aylangroup.com
+              Pour toute réclamation : support@digecom.com
             </div>
 
-            <div className="text-center p-2.5 border border-indigo-100 rounded-lg bg-indigo-50/40">
-              <div className="text-[9px] font-bold uppercase tracking-wider text-indigo-600">Cachet & Validation</div>
-              <div className="text-[11px] font-black text-indigo-900 mt-1">AYLAN GROUP COMORES</div>
+            <div className="text-center p-2.5 border border-blue-100 rounded-lg bg-blue-50/40">
+              <div className="text-[9px] font-bold uppercase tracking-wider text-[#0B3DF5]">Cachet & Validation</div>
+              <div className="text-[11px] font-black text-slate-900 mt-1">DIG E-COM</div>
               <div className="text-[8px] text-slate-400 font-mono mt-0.5">Approuvé Direction Financière</div>
             </div>
           </div>

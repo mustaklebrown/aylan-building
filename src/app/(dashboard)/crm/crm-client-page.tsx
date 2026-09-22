@@ -282,7 +282,7 @@ export function CRMClientPage({
         p.comments || "",
         formatDate(p.createdAt),
       ],
-      "prospects_aylan"
+      "prospects_digecom"
     );
   };
 

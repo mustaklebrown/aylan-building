@@ -6,13 +6,18 @@ import { headers } from "next/headers";
 
 export async function seedTestAccountsAction() {
   const usersToCreate = [
+    { email: "admin@digecom.com", name: "Directeur Admin", role: "ADMIN" },
+    { email: "compta@digecom.com", name: "Comptable Dig", role: "ACCOUNTANT" },
+    { email: "leader@digecom.com", name: "Leader Dig", role: "LEADER" },
+    { email: "agent@digecom.com", name: "Commercial Dig", role: "AGENT" },
+    { email: "livreur@digecom.com", name: "Assistant Livraison", role: "DELIVERY_ASSISTANT" },
+    { email: "driver@digecom.com", name: "Livreur Principal", role: "DELIVERY" },
+    // Legacy support
     { email: "admin@aylangroup.com", name: "Directeur Admin", role: "ADMIN" },
-    { email: "accountant@aylangroup.com", name: "Comptable Aylan", role: "ACCOUNTANT" },
-    { email: "leader@aylangroup.com", name: "Leader Aylan", role: "LEADER" },
-    { email: "agent@aylangroup.com", name: "Commercial Aylan", role: "AGENT" },
-    { email: "delivery@aylangroup.com", name: "Assistant de direction (Livraison)", role: "DELIVERY_ASSISTANT" },
-    { email: "driver@aylangroup.com", name: "Livreur Principal", role: "DELIVERY" },
-    { email: "driver2@aylangroup.com", name: "Livreur Secondaire", role: "DELIVERY" },
+    { email: "accountant@aylangroup.com", name: "Comptable", role: "ACCOUNTANT" },
+    { email: "leader@aylangroup.com", name: "Leader", role: "LEADER" },
+    { email: "agent@aylangroup.com", name: "Commercial", role: "AGENT" },
+    { email: "delivery@aylangroup.com", name: "Assistant Livraison", role: "DELIVERY_ASSISTANT" },
   ];
 
   const results = [];

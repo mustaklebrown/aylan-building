@@ -5,7 +5,7 @@ import { getProductsAction } from "@/server/actions/product-actions";
 import { ProductsClientPage } from "./products-client-page";
 
 export const metadata = {
-  title: "Catalogue Produits & Stock - AYLAN GROUP",
+  title: "Catalogue Produits & Stock - Dig e-com",
   description: "Gestion des produits, des prix de vente et des niveaux de stock.",
 };
 

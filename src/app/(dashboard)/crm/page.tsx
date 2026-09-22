@@ -5,7 +5,7 @@ import { getProspectsAction } from "@/server/actions/prospect-actions";
 import { CRMClientPage } from "./crm-client-page";
 
 export const metadata = {
-  title: "CRM / Prospects - AYLAN GROUP",
+  title: "CRM / Prospects - Dig e-com",
   description: "Gérez vos contacts commerciaux et suivez l'avancement de chaque prospect.",
 };
 
