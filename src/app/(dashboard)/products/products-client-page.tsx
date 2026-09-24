@@ -54,10 +54,12 @@ import {
   ShieldCheck,
   Sparkles,
   Trash2,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   createProductAction,
+  updateProductAction,
   recordStockMovementAction,
   toggleProductActiveAction,
   deleteProductAction,
@@ -101,6 +103,13 @@ interface Product {
   recentMovements: StockMovement[];
 }
 
+export interface StockisteUser {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string;
+}
+
 interface ProductsClientPageProps {
   initialProducts: Product[];
   summary: {
@@ -115,25 +124,31 @@ interface ProductsClientPageProps {
     email: string;
     role: string;
   };
+  initialStockistes?: StockisteUser[];
 }
 
 export function ProductsClientPage({
   initialProducts,
   summary,
   currentUser,
+  initialStockistes = [],
 }: ProductsClientPageProps) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [stockistes] = useState<StockisteUser[]>(initialStockistes);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [isMoveOpen, setIsMoveOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -153,6 +168,21 @@ export function ProductsClientPage({
     alertThreshold: 5,
     allowAllEcommercants: true,
     allowAllLeaders: true,
+    stockisteId: "",
+  });
+
+  const [editForm, setEditForm] = useState({
+    name: "",
+    sku: "",
+    category: "",
+    description: "",
+    purchasePrice: 0,
+    salePrice: 0,
+    agentCommission: 0,
+    ecommercantCommission: 0,
+    leaderCommission: 0,
+    alertThreshold: 5,
+    stockisteId: "none",
   });
 
   const [moveForm, setMoveForm] = useState({
@@ -171,7 +201,28 @@ export function ProductsClientPage({
   const isAdminOrAccountant = role === "ADMIN" || role === "ACCOUNTANT";
 
   const canCreate = isAdminOrAccountant || isStockiste || isLeader;
-  const canMoveStock = isAdminOrAccountant || isStockiste;
+  const canMoveStock = isAdminOrAccountant || isStockiste || isLeader;
+
+  // Ownership & permission helpers
+  const isLeaderOwnProduct = (p: Product) =>
+    p.leaderId === currentUser.id || p.stockisteId === currentUser.id;
+  const isStockisteOwnProduct = (p: Product) =>
+    p.stockisteId === currentUser.id;
+
+  const canEditProduct = (p: Product) =>
+    isAdminOrAccountant ||
+    (isLeader && isLeaderOwnProduct(p)) ||
+    (isStockiste && isStockisteOwnProduct(p));
+
+  const canDeleteProduct = (p: Product) =>
+    isAdminOrAccountant ||
+    (isLeader && isLeaderOwnProduct(p)) ||
+    (isStockiste && isStockisteOwnProduct(p));
+
+  const canToggleProduct = (p: Product) =>
+    isAdminOrAccountant ||
+    (isLeader && isLeaderOwnProduct(p)) ||
+    (isStockiste && isStockisteOwnProduct(p));
 
   const categories = ["all", ...Array.from(new Set(products.map((p) => p.category || "Autre")))];
 
@@ -179,7 +230,8 @@ export function ProductsClientPage({
     const matchesSearch =
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.stockisteName && p.stockisteName.toLowerCase().includes(searchTerm.toLowerCase()));
+      (p.stockisteName && p.stockisteName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (p.leaderName && p.leaderName.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesCat = selectedCategory === "all" || p.category === selectedCategory;
     const matchesStatus =
@@ -210,10 +262,15 @@ export function ProductsClientPage({
         alertThreshold: addForm.alertThreshold,
         allowAllEcommercants: addForm.allowAllEcommercants,
         allowAllLeaders: addForm.allowAllLeaders,
+        stockisteId:
+          addForm.stockisteId && addForm.stockisteId !== "none"
+            ? addForm.stockisteId
+            : undefined,
       });
 
       if (res.success && res.product) {
         toast.success("Produit ajouté au catalogue !");
+        const assignedStockiste = stockistes.find((s) => s.id === res.product.stockisteId);
         const newProduct: Product = {
           id: res.product.id,
           name: res.product.name,
@@ -231,9 +288,17 @@ export function ProductsClientPage({
           isActive: res.product.isActive,
           isCommon: res.product.isCommon,
           stockisteId: res.product.stockisteId,
-          stockisteName: isStockiste ? currentUser.name : null,
+          stockisteName: isStockiste
+            ? currentUser.name
+            : assignedStockiste
+            ? assignedStockiste.name || assignedStockiste.email
+            : null,
           leaderId: res.product.leaderId,
-          leaderName: isLeader ? currentUser.name : null,
+          leaderName: isLeader
+            ? currentUser.name
+            : assignedStockiste?.role === "LEADER"
+            ? assignedStockiste.name || assignedStockiste.email
+            : null,
           allowAllEcommercants: res.product.allowAllEcommercants,
           allowAllLeaders: res.product.allowAllLeaders,
           recentMovements: addForm.stockAvailable > 0 ? [{
@@ -262,6 +327,7 @@ export function ProductsClientPage({
           alertThreshold: 5,
           allowAllEcommercants: true,
           allowAllLeaders: true,
+          stockisteId: "",
         });
       } else {
         toast.error(res.error || "Erreur lors de la création.");
@@ -270,6 +336,106 @@ export function ProductsClientPage({
       toast.error(err.message || "Erreur réseau.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const openEditModal = (p: Product) => {
+    setProductToEdit(p);
+    setEditForm({
+      name: p.name,
+      sku: p.sku,
+      category: p.category || "",
+      description: p.description || "",
+      purchasePrice: p.purchasePrice,
+      salePrice: p.salePrice,
+      agentCommission: p.agentCommission,
+      ecommercantCommission: p.ecommercantCommission,
+      leaderCommission: p.leaderCommission,
+      alertThreshold: p.alertThreshold,
+      stockisteId: p.stockisteId || "none",
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleUpdateProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!productToEdit) return;
+    setIsUpdating(true);
+
+    try {
+      const res = await updateProductAction({
+        id: productToEdit.id,
+        name: editForm.name,
+        sku: editForm.sku,
+        category: editForm.category || "Autre",
+        description: editForm.description,
+        purchasePrice: editForm.purchasePrice,
+        salePrice: editForm.salePrice,
+        agentCommission: editForm.agentCommission,
+        ecommercantCommission: editForm.ecommercantCommission,
+        leaderCommission: editForm.leaderCommission,
+        alertThreshold: editForm.alertThreshold,
+        stockisteId: isAdminOrAccountant
+          ? editForm.stockisteId && editForm.stockisteId !== "none"
+            ? editForm.stockisteId
+            : null
+          : undefined,
+      });
+
+      if (res.success && res.product) {
+        toast.success("Fiche produit mise à jour avec succès !");
+        const assignedStockiste = stockistes.find((s) => s.id === res.product.stockisteId);
+        setProducts((prev) =>
+          prev.map((p) => {
+            if (p.id === productToEdit.id) {
+              const updatedStockisteName = assignedStockiste
+                ? assignedStockiste.name || assignedStockiste.email
+                : res.product.stockisteId === currentUser.id
+                ? currentUser.name
+                : res.product.stockisteId
+                ? p.stockisteName
+                : null;
+
+              const updatedLeaderName =
+                assignedStockiste?.role === "LEADER"
+                  ? assignedStockiste.name || assignedStockiste.email
+                  : res.product.leaderId === currentUser.id
+                  ? currentUser.name
+                  : res.product.leaderId
+                  ? p.leaderName
+                  : null;
+
+              return {
+                ...p,
+                name: res.product.name,
+                sku: res.product.sku,
+                category: res.product.category || "Autre",
+                description: res.product.description || "",
+                purchasePrice: res.product.purchasePrice,
+                salePrice: res.product.salePrice,
+                agentCommission: res.product.agentCommission,
+                ecommercantCommission: res.product.ecommercantCommission,
+                leaderCommission: res.product.leaderCommission,
+                alertThreshold: res.product.alertThreshold,
+                isAlert: p.stockAvailable <= res.product.alertThreshold,
+                stockisteId: res.product.stockisteId,
+                stockisteName: updatedStockisteName,
+                leaderId: res.product.leaderId,
+                leaderName: updatedLeaderName,
+              };
+            }
+            return p;
+          })
+        );
+        setIsEditOpen(false);
+        setProductToEdit(null);
+      } else {
+        toast.error(res.error || "Erreur lors de la modification.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erreur réseau.");
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -621,7 +787,7 @@ export function ProductsClientPage({
                   )}
                   <TableHead className="text-center">Stock</TableHead>
                   <TableHead>État</TableHead>
-                  {(isAdminOrAccountant || isStockiste) && <TableHead className="text-center">Actif</TableHead>}
+                  {(isAdminOrAccountant || isStockiste || isLeader) && <TableHead className="text-center">Actif</TableHead>}
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -643,7 +809,11 @@ export function ProductsClientPage({
                       </TableCell>
                       <TableCell className="font-mono text-xs text-slate-500">#{p.sku}</TableCell>
                       <TableCell>
-                        {p.stockisteName ? (
+                        {p.leaderId && (p.leaderId === p.stockisteId || isLeader) ? (
+                          <Badge variant="outline" className="bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20 text-[10px] font-bold">
+                            👑 {p.leaderName || p.stockisteName || (p.leaderId === currentUser.id ? currentUser.name : "Leader")}
+                          </Badge>
+                        ) : p.stockisteName ? (
                           <Badge variant="outline" className="bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/20 text-[10px] font-bold">
                             📦 {p.stockisteName}
                           </Badge>
@@ -693,19 +863,27 @@ export function ProductsClientPage({
                         )}
                       </TableCell>
 
-                      {(isAdminOrAccountant || isStockiste) && (
+                      {(isAdminOrAccountant || isStockiste || isLeader) && (
                         <TableCell className="text-center">
-                          <button
-                            onClick={() => handleToggleActive(p.id)}
-                            className="p-1 rounded hover:bg-slate-100 transition-colors"
-                            title={p.isActive ? "Désactiver ce produit" : "Activer ce produit"}
-                          >
-                            {p.isActive ? (
-                              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                          {canToggleProduct(p) ? (
+                            <button
+                              onClick={() => handleToggleActive(p.id)}
+                              className="p-1 rounded hover:bg-slate-100 transition-colors"
+                              title={p.isActive ? "Désactiver ce produit" : "Activer ce produit"}
+                            >
+                              {p.isActive ? (
+                                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                              ) : (
+                                <XCircle className="h-4 w-4 text-slate-400" />
+                              )}
+                            </button>
+                          ) : (
+                            p.isActive ? (
+                              <CheckCircle2 className="h-4 w-4 text-emerald-600/50 mx-auto" />
                             ) : (
-                              <XCircle className="h-4 w-4 text-slate-400" />
-                            )}
-                          </button>
+                              <XCircle className="h-4 w-4 text-slate-400/50 mx-auto" />
+                            )
+                          )}
                         </TableCell>
                       )}
 
@@ -720,13 +898,24 @@ export function ProductsClientPage({
                           >
                             <History className="h-4 w-4" />
                           </Button>
-                          {isAdminOrAccountant && (
+                          {canEditProduct(p) && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEditModal(p)}
+                              className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                              title="Modifier ce produit"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canDeleteProduct(p) && (
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => openDeleteModal(p)}
                               className="h-8 w-8 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                              title="Supprimer ce produit (Admin / Comptable)"
+                              title="Supprimer ce produit"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -876,6 +1065,33 @@ export function ProductsClientPage({
               />
             </div>
 
+            {isAdminOrAccountant && (
+              <div className="space-y-1">
+                <Label htmlFor="stockisteId" className="text-xs font-semibold">
+                  Assigner au stockiste / leader (optionnel)
+                </Label>
+                <Select
+                  value={addForm.stockisteId || "none"}
+                  onValueChange={(val) => setAddForm({ ...addForm, stockisteId: !val || val === "none" ? "" : val })}
+                >
+                  <SelectTrigger id="stockisteId" className="border-slate-200">
+                    <SelectValue placeholder="Sélectionner un stockiste ou un leader" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">🏢 Stock Central (Direct Dig e-com)</SelectItem>
+                    {stockistes.map((st) => (
+                      <SelectItem key={st.id} value={st.id}>
+                        {st.role === "LEADER" ? "👑 [Leader]" : "📦 [Stockiste]"} {st.name || st.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  Si assigné à un leader, le produit lui appartiendra et sera tagué pour ses commissions d'équipe.
+                </p>
+              </div>
+            )}
+
             <DialogFooter className="pt-4">
               <Button
                 type="button"
@@ -891,6 +1107,174 @@ export function ProductsClientPage({
                 className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
               >
                 {isSubmitting ? "Création..." : "Ajouter le produit"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Product Modal */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-blue-600" />
+              Modifier la fiche produit
+            </DialogTitle>
+            <DialogDescription>
+              Mettez à jour les informations, tarifs et commissions de cet article.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdateProduct} className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="edit-name">Nom de l'article *</Label>
+                <Input
+                  id="edit-name"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit-sku">SKU unique *</Label>
+                <Input
+                  id="edit-sku"
+                  value={editForm.sku}
+                  onChange={(e) => setEditForm({ ...editForm, sku: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="edit-category">Catégorie</Label>
+                <Input
+                  id="edit-category"
+                  value={editForm.category}
+                  onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit-alertThreshold">Seuil d'alerte rupture</Label>
+                <Input
+                  id="edit-alertThreshold"
+                  type="number"
+                  min="0"
+                  value={editForm.alertThreshold}
+                  onChange={(e) => setEditForm({ ...editForm, alertThreshold: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="edit-purchasePrice">Prix d'Achat (KMF) *</Label>
+                <Input
+                  id="edit-purchasePrice"
+                  type="number"
+                  min="0"
+                  value={editForm.purchasePrice}
+                  onChange={(e) => setEditForm({ ...editForm, purchasePrice: parseFloat(e.target.value) || 0 })}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit-salePrice" className="font-bold text-indigo-600">Prix de Vente (KMF) *</Label>
+                <Input
+                  id="edit-salePrice"
+                  type="number"
+                  min="0"
+                  value={editForm.salePrice}
+                  onChange={(e) => setEditForm({ ...editForm, salePrice: parseFloat(e.target.value) || 0 })}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Commissions Section */}
+            <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+              <p className="text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Coins className="h-3.5 w-3.5 text-amber-500" />
+                Grille des Commissions par Rôle
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="edit-agentCommission" className="text-[11px] font-bold text-emerald-600">Téléconseiller (KMF)</Label>
+                  <Input
+                    id="edit-agentCommission"
+                    type="number"
+                    min="0"
+                    value={editForm.agentCommission}
+                    onChange={(e) => setEditForm({ ...editForm, agentCommission: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="edit-ecommercantCommission" className="text-[11px] font-bold text-pink-600">E-commerçant (KMF)</Label>
+                  <Input
+                    id="edit-ecommercantCommission"
+                    type="number"
+                    min="0"
+                    value={editForm.ecommercantCommission}
+                    onChange={(e) => setEditForm({ ...editForm, ecommercantCommission: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="edit-leaderCommission" className="text-[11px] font-bold text-purple-600">Leader (KMF)</Label>
+                  <Input
+                    id="edit-leaderCommission"
+                    type="number"
+                    min="0"
+                    value={editForm.leaderCommission}
+                    onChange={(e) => setEditForm({ ...editForm, leaderCommission: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {isAdminOrAccountant && (
+              <div className="space-y-1">
+                <Label htmlFor="edit-stockisteId" className="text-xs font-semibold">
+                  Assigner au stockiste / leader (optionnel)
+                </Label>
+                <Select
+                  value={editForm.stockisteId || "none"}
+                  onValueChange={(val) => setEditForm({ ...editForm, stockisteId: !val || val === "none" ? "none" : val })}
+                >
+                  <SelectTrigger id="edit-stockisteId" className="border-slate-200">
+                    <SelectValue placeholder="Sélectionner un stockiste ou un leader" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">🏢 Stock Central (Direct Dig e-com)</SelectItem>
+                    {stockistes.map((st) => (
+                      <SelectItem key={st.id} value={st.id}>
+                        {st.role === "LEADER" ? "👑 [Leader]" : "📦 [Stockiste]"} {st.name || st.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <DialogFooter className="pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsEditOpen(false);
+                  setProductToEdit(null);
+                }}
+                disabled={isUpdating}
+              >
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                disabled={isUpdating}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
+              >
+                {isUpdating ? "Enregistrement..." : "Enregistrer les modifications"}
               </Button>
             </DialogFooter>
           </form>

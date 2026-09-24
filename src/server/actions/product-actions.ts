@@ -1,9 +1,9 @@
-"use server";
+'use server';
 
-import { auth } from "@/lib/auth";
-import prisma from "@/lib/prisma";
-import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { auth } from '@/lib/auth';
+import prisma from '@/lib/prisma';
+import { headers } from 'next/headers';
+import { revalidatePath } from 'next/cache';
 
 async function checkAuth() {
   const session = await auth.api.getSession({
@@ -11,7 +11,7 @@ async function checkAuth() {
   });
 
   if (!session) {
-    throw new Error("Non authentifié");
+    throw new Error('Non authentifié');
   }
 
   return session.user;
@@ -19,16 +19,16 @@ async function checkAuth() {
 
 export async function getProductsAction() {
   const user = await checkAuth();
-  const role = user.role || "AGENT";
+  const role = user.role || 'AGENT';
 
   try {
     // Build filter based on role
     let whereClause: any = {};
 
-    if (role === "STOCKISTE") {
+    if (role === 'STOCKISTE') {
       // Stockiste sees all products they own
       whereClause = { stockisteId: user.id };
-    } else if (role === "ECOMMERCANT") {
+    } else if (role === 'ECOMMERCANT') {
       // E-commerçant sees active products that allow all e-commerçants OR are assigned specifically to them
       whereClause = {
         isActive: true,
@@ -37,17 +37,22 @@ export async function getProductsAction() {
           { assignments: { some: { userId: user.id, allowed: true } } },
         ],
       };
-    } else if (role === "LEADER") {
-      // Leaders see active products that allow all leaders OR are assigned to them OR created by them
+    } else if (role === 'LEADER') {
+      // Leaders see all products they own (active or inactive) + active common/assigned products
       whereClause = {
-        isActive: true,
         OR: [
-          { allowAllLeaders: true },
           { leaderId: user.id },
-          { assignments: { some: { userId: user.id, allowed: true } } },
+          { stockisteId: user.id },
+          {
+            isActive: true,
+            OR: [
+              { allowAllLeaders: true },
+              { assignments: { some: { userId: user.id, allowed: true } } },
+            ],
+          },
         ],
       };
-    } else if (role === "AGENT") {
+    } else if (role === 'AGENT') {
       // Téléconseillers see active products allowed for their leader
       const currentAgent = await prisma.user.findUnique({
         where: { id: user.id },
@@ -60,7 +65,11 @@ export async function getProductsAction() {
           OR: [
             { allowAllLeaders: true },
             { leaderId: currentAgent.leaderId },
-            { assignments: { some: { userId: currentAgent.leaderId, allowed: true } } },
+            {
+              assignments: {
+                some: { userId: currentAgent.leaderId, allowed: true },
+              },
+            },
             { assignments: { some: { userId: user.id, allowed: true } } },
           ],
         };
@@ -72,10 +81,10 @@ export async function getProductsAction() {
 
     const products = await prisma.product.findMany({
       where: whereClause,
-      orderBy: { name: "asc" },
+      orderBy: { name: 'asc' },
       include: {
         movements: {
-          orderBy: { date: "desc" },
+          orderBy: { date: 'desc' },
           take: 5,
         },
         stockiste: {
@@ -103,24 +112,24 @@ export async function getProductsAction() {
 
     const stockValue = products.reduce(
       (sum, p) => sum + p.purchasePrice * p.stockAvailable,
-      0
+      0,
     );
 
     const stockSalesValue = products.reduce(
       (sum, p) => sum + p.salePrice * p.stockAvailable,
-      0
+      0,
     );
 
     const lowStockCount = products.filter(
-      (p) => p.stockAvailable <= p.alertThreshold
+      (p) => p.stockAvailable <= p.alertThreshold,
     ).length;
 
     const formattedProducts = products.map((p) => ({
       id: p.id,
       name: p.name,
       sku: p.sku,
-      category: p.category || "Autre",
-      description: p.description || "",
+      category: p.category || 'Autre',
+      description: p.description || '',
       purchasePrice: p.purchasePrice,
       salePrice: p.salePrice,
       agentCommission: p.agentCommission,
@@ -153,7 +162,7 @@ export async function getProductsAction() {
       },
     };
   } catch (error: any) {
-    console.error("Error getting products:", error);
+    console.error('Error getting products:', error);
     return { success: false, error: error.message };
   }
 }
@@ -178,18 +187,39 @@ export async function createProductAction(data: {
   isActive?: boolean;
 }) {
   const user = await checkAuth();
-  const role = user.role || "AGENT";
+  const role = user.role || 'AGENT';
 
-  if (role !== "ADMIN" && role !== "ACCOUNTANT" && role !== "STOCKISTE" && role !== "LEADER") {
-    return { success: false, error: "Non autorisé à créer un produit." };
+  if (
+    role !== 'ADMIN' &&
+    role !== 'ACCOUNTANT' &&
+    role !== 'STOCKISTE' &&
+    role !== 'LEADER'
+  ) {
+    return { success: false, error: 'Non autorisé à créer un produit.' };
   }
 
-  // Determine Stockiste owner
+  // Determine Stockiste & Leader owner
   let stockisteId: string | null = null;
-  if (role === "STOCKISTE") {
+  let leaderId: string | null = data.leaderId || null;
+
+  if (role === 'STOCKISTE') {
     stockisteId = user.id;
-  } else if (role === "ADMIN" || role === "ACCOUNTANT") {
-    stockisteId = data.stockisteId || user.id;
+  } else if (role === 'LEADER') {
+    stockisteId = user.id;
+    leaderId = user.id;
+  } else if (role === 'ADMIN' || role === 'ACCOUNTANT') {
+    if (data.stockisteId) {
+      stockisteId = data.stockisteId;
+      const targetUser = await prisma.user.findUnique({
+        where: { id: data.stockisteId },
+        select: { id: true, role: true },
+      });
+      if (targetUser?.role === 'LEADER') {
+        leaderId = targetUser.id;
+      }
+    } else {
+      stockisteId = null;
+    }
   }
 
   try {
@@ -198,14 +228,14 @@ export async function createProductAction(data: {
     });
 
     if (existing) {
-      return { success: false, error: "Un produit avec ce SKU existe déjà." };
+      return { success: false, error: 'Un produit avec ce SKU existe déjà.' };
     }
 
     const product = await prisma.product.create({
       data: {
         name: data.name,
         sku: data.sku,
-        category: data.category || "Autre",
+        category: data.category || 'Autre',
         description: data.description,
         purchasePrice: data.purchasePrice,
         salePrice: data.salePrice,
@@ -216,7 +246,7 @@ export async function createProductAction(data: {
         alertThreshold: data.alertThreshold,
         stockisteId: stockisteId,
         isCommon: data.isCommon ?? true,
-        leaderId: data.leaderId || null,
+        leaderId: leaderId,
         allowAllEcommercants: data.allowAllEcommercants ?? true,
         allowAllLeaders: data.allowAllLeaders ?? true,
         isActive: data.isActive ?? true,
@@ -227,10 +257,10 @@ export async function createProductAction(data: {
       await prisma.stockMovement.create({
         data: {
           productId: product.id,
-          type: "IN",
+          type: 'IN',
           quantity: data.stockAvailable,
           cost: data.purchasePrice,
-          supplier: "Stock Initial",
+          supplier: 'Stock Initial',
         },
       });
     }
@@ -238,18 +268,18 @@ export async function createProductAction(data: {
     await prisma.auditLog.create({
       data: {
         userId: user.id,
-        action: "CREATE_PRODUCT",
-        entity: "product",
+        action: 'CREATE_PRODUCT',
+        entity: 'product',
         entityId: product.id,
-        details: `Création du produit ${product.name} (SKU: ${product.sku}, Stock initial: ${product.stockAvailable}, Stockiste: ${stockisteId || "Non assigné"})`,
+        details: `Création du produit ${product.name} (SKU: ${product.sku}, Stock initial: ${product.stockAvailable}, Stockiste/Leader: ${stockisteId || 'Stock Central'})`,
       },
     });
 
-    revalidatePath("/products");
-    revalidatePath("/");
+    revalidatePath('/products');
+    revalidatePath('/');
     return { success: true, product };
   } catch (error: any) {
-    console.error("Error creating product:", error);
+    console.error('Error creating product:', error);
     return { success: false, error: error.message };
   }
 }
@@ -266,16 +296,21 @@ export async function updateProductAction(data: {
   ecommercantCommission?: number;
   leaderCommission?: number;
   alertThreshold: number;
-  stockisteId?: string;
+  stockisteId?: string | null;
   allowAllEcommercants?: boolean;
   allowAllLeaders?: boolean;
   isActive?: boolean;
 }) {
   const user = await checkAuth();
-  const role = user.role || "AGENT";
+  const role = user.role || 'AGENT';
 
-  if (role !== "ADMIN" && role !== "ACCOUNTANT" && role !== "STOCKISTE") {
-    return { success: false, error: "Non autorisé à modifier un produit." };
+  if (
+    role !== 'ADMIN' &&
+    role !== 'ACCOUNTANT' &&
+    role !== 'STOCKISTE' &&
+    role !== 'LEADER'
+  ) {
+    return { success: false, error: 'Non autorisé à modifier un produit.' };
   }
 
   try {
@@ -284,11 +319,52 @@ export async function updateProductAction(data: {
     });
 
     if (!existing) {
-      return { success: false, error: "Produit non trouvé." };
+      return { success: false, error: 'Produit non trouvé.' };
     }
 
-    if (role === "STOCKISTE" && existing.stockisteId !== user.id) {
-      return { success: false, error: "Vous ne pouvez modifier que vos propres produits." };
+    // Leader ownership check
+    if (
+      role === 'LEADER' &&
+      existing.leaderId !== user.id &&
+      existing.stockisteId !== user.id
+    ) {
+      return {
+        success: false,
+        error: 'Vous ne pouvez modifier que vos propres produits.',
+      };
+    }
+
+    // Stockiste ownership check
+    if (role === 'STOCKISTE' && existing.stockisteId !== user.id) {
+      return {
+        success: false,
+        error: 'Vous ne pouvez modifier que vos propres produits.',
+      };
+    }
+
+    let targetStockisteId = existing.stockisteId;
+    let targetLeaderId = existing.leaderId;
+
+    if (role === 'ADMIN' || role === 'ACCOUNTANT') {
+      if (data.stockisteId !== undefined) {
+        targetStockisteId = data.stockisteId || null;
+        if (targetStockisteId) {
+          const targetUser = await prisma.user.findUnique({
+            where: { id: targetStockisteId },
+            select: { id: true, role: true },
+          });
+          if (targetUser?.role === 'LEADER') {
+            targetLeaderId = targetUser.id;
+          } else if (targetUser?.role === 'STOCKISTE') {
+            // Keep previous leaderId or clear if switched to an independent stockiste
+            if (existing.leaderId === existing.stockisteId) {
+              targetLeaderId = null;
+            }
+          }
+        } else {
+          targetStockisteId = null;
+        }
+      }
     }
 
     const updated = await prisma.product.update({
@@ -296,16 +372,23 @@ export async function updateProductAction(data: {
       data: {
         name: data.name,
         sku: data.sku,
-        category: data.category || existing.category,
-        description: data.description,
+        category:
+          data.category !== undefined ? data.category : existing.category,
+        description:
+          data.description !== undefined
+            ? data.description
+            : existing.description,
         purchasePrice: data.purchasePrice,
         salePrice: data.salePrice,
         agentCommission: data.agentCommission ?? existing.agentCommission,
-        ecommercantCommission: data.ecommercantCommission ?? existing.ecommercantCommission,
+        ecommercantCommission:
+          data.ecommercantCommission ?? existing.ecommercantCommission,
         leaderCommission: data.leaderCommission ?? existing.leaderCommission,
         alertThreshold: data.alertThreshold,
-        stockisteId: role === "ADMIN" ? (data.stockisteId || existing.stockisteId) : existing.stockisteId,
-        allowAllEcommercants: data.allowAllEcommercants ?? existing.allowAllEcommercants,
+        stockisteId: targetStockisteId,
+        leaderId: targetLeaderId,
+        allowAllEcommercants:
+          data.allowAllEcommercants ?? existing.allowAllEcommercants,
         allowAllLeaders: data.allowAllLeaders ?? existing.allowAllLeaders,
         isActive: data.isActive ?? existing.isActive,
       },
@@ -314,36 +397,51 @@ export async function updateProductAction(data: {
     await prisma.auditLog.create({
       data: {
         userId: user.id,
-        action: "UPDATE_PRODUCT",
-        entity: "product",
+        action: 'UPDATE_PRODUCT',
+        entity: 'product',
         entityId: updated.id,
-        details: `Modification du produit ${updated.name} (SKU: ${updated.sku}) par ${user.name}`,
+        details: `Modification du produit ${updated.name} (SKU: ${updated.sku}) par ${user.name} (${role})`,
       },
     });
 
-    revalidatePath("/products");
-    revalidatePath("/");
+    revalidatePath('/products');
+    revalidatePath('/');
     return { success: true, product: updated };
   } catch (error: any) {
-    console.error("Error updating product:", error);
+    console.error('Error updating product:', error);
     return { success: false, error: error.message };
   }
 }
 
 export async function toggleProductActiveAction(productId: string) {
   const user = await checkAuth();
-  const role = user.role || "AGENT";
+  const role = user.role || 'AGENT';
 
-  if (role !== "ADMIN" && role !== "STOCKISTE") {
-    return { success: false, error: "Non autorisé." };
+  if (
+    role !== 'ADMIN' &&
+    role !== 'ACCOUNTANT' &&
+    role !== 'STOCKISTE' &&
+    role !== 'LEADER'
+  ) {
+    return { success: false, error: 'Non autorisé.' };
   }
 
   try {
-    const product = await prisma.product.findUnique({ where: { id: productId } });
-    if (!product) return { success: false, error: "Produit non trouvé." };
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+    });
+    if (!product) return { success: false, error: 'Produit non trouvé.' };
 
-    if (role === "STOCKISTE" && product.stockisteId !== user.id) {
-      return { success: false, error: "Non autorisé." };
+    if (role === 'STOCKISTE' && product.stockisteId !== user.id) {
+      return { success: false, error: 'Non autorisé.' };
+    }
+
+    if (
+      role === 'LEADER' &&
+      product.leaderId !== user.id &&
+      product.stockisteId !== user.id
+    ) {
+      return { success: false, error: 'Non autorisé.' };
     }
 
     const updated = await prisma.product.update({
@@ -351,7 +449,7 @@ export async function toggleProductActiveAction(productId: string) {
       data: { isActive: !product.isActive },
     });
 
-    revalidatePath("/products");
+    revalidatePath('/products');
     return { success: true, isActive: updated.isActive };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -360,16 +458,21 @@ export async function toggleProductActiveAction(productId: string) {
 
 export async function recordStockMovementAction(data: {
   productId: string;
-  type: "IN" | "OUT_LOSS" | "OUT_DAMAGE" | "OUT_RETURN" | "CORRECTION";
+  type: 'IN' | 'OUT_LOSS' | 'OUT_DAMAGE' | 'OUT_RETURN' | 'CORRECTION';
   quantity: number;
   cost?: number;
   supplier?: string;
 }) {
   const user = await checkAuth();
-  const role = user.role || "AGENT";
+  const role = user.role || 'AGENT';
 
-  if (role !== "ADMIN" && role !== "ACCOUNTANT" && role !== "STOCKISTE") {
-    return { success: false, error: "Non autorisé à modifier les stocks." };
+  if (
+    role !== 'ADMIN' &&
+    role !== 'ACCOUNTANT' &&
+    role !== 'STOCKISTE' &&
+    role !== 'LEADER'
+  ) {
+    return { success: false, error: 'Non autorisé à modifier les stocks.' };
   }
 
   try {
@@ -378,22 +481,39 @@ export async function recordStockMovementAction(data: {
     });
 
     if (!product) {
-      return { success: false, error: "Produit non trouvé." };
+      return { success: false, error: 'Produit non trouvé.' };
     }
 
-    if (role === "STOCKISTE" && product.stockisteId !== user.id) {
-      return { success: false, error: "Vous ne pouvez modifier le stock que de vos propres produits." };
+    if (role === 'STOCKISTE' && product.stockisteId !== user.id) {
+      return {
+        success: false,
+        error: 'Vous ne pouvez modifier le stock que de vos propres produits.',
+      };
+    }
+
+    if (
+      role === 'LEADER' &&
+      product.leaderId !== user.id &&
+      product.stockisteId !== user.id
+    ) {
+      return {
+        success: false,
+        error: 'Vous ne pouvez modifier le stock que de vos propres produits.',
+      };
     }
 
     let newStock = product.stockAvailable;
-    if (data.type === "IN" || data.type === "OUT_RETURN") {
+    if (data.type === 'IN' || data.type === 'OUT_RETURN') {
       newStock += data.quantity;
-    } else if (data.type === "OUT_LOSS" || data.type === "OUT_DAMAGE") {
+    } else if (data.type === 'OUT_LOSS' || data.type === 'OUT_DAMAGE') {
       newStock -= data.quantity;
       if (newStock < 0) {
-        return { success: false, error: "Stock insuffisant pour cette sortie." };
+        return {
+          success: false,
+          error: 'Stock insuffisant pour cette sortie.',
+        };
       }
-    } else if (data.type === "CORRECTION") {
+    } else if (data.type === 'CORRECTION') {
       newStock = data.quantity;
     }
 
@@ -415,18 +535,18 @@ export async function recordStockMovementAction(data: {
     await prisma.auditLog.create({
       data: {
         userId: user.id,
-        action: "RECORD_STOCK_MOVEMENT",
-        entity: "product",
+        action: 'RECORD_STOCK_MOVEMENT',
+        entity: 'product',
         entityId: data.productId,
         details: `Mouvement de stock de type ${data.type} (${data.quantity} unités) pour ${product.name}. Nouveau stock: ${newStock}`,
       },
     });
 
-    revalidatePath("/products");
-    revalidatePath("/");
+    revalidatePath('/products');
+    revalidatePath('/');
     return { success: true, movement, newStock };
   } catch (error: any) {
-    console.error("Error recording stock movement:", error);
+    console.error('Error recording stock movement:', error);
     return { success: false, error: error.message };
   }
 }
@@ -436,10 +556,7 @@ export async function getStockistesAction() {
     const user = await checkAuth();
     const stockistes = await prisma.user.findMany({
       where: {
-        OR: [
-          { role: "STOCKISTE" },
-          { role: "ADMIN" },
-        ],
+        OR: [{ role: 'STOCKISTE' }, { role: 'LEADER' }, { role: 'ADMIN' }],
       },
       select: {
         id: true,
@@ -447,7 +564,7 @@ export async function getStockistesAction() {
         email: true,
         role: true,
       },
-      orderBy: { name: "asc" },
+      orderBy: [{ role: 'asc' }, { name: 'asc' }],
     });
 
     return { success: true, stockistes };
@@ -458,12 +575,17 @@ export async function getStockistesAction() {
 
 export async function deleteProductAction(productId: string) {
   const user = await checkAuth();
-  const role = user.role || "AGENT";
+  const role = user.role || 'AGENT';
 
-  if (role !== "ADMIN" && role !== "ACCOUNTANT") {
+  if (
+    role !== 'ADMIN' &&
+    role !== 'ACCOUNTANT' &&
+    role !== 'LEADER' &&
+    role !== 'STOCKISTE'
+  ) {
     return {
       success: false,
-      error: "Seuls l'Administrateur ou le Comptable sont autorisés à supprimer un produit.",
+      error: 'Non autorisé à supprimer ce produit.',
     };
   }
 
@@ -473,7 +595,25 @@ export async function deleteProductAction(productId: string) {
     });
 
     if (!existing) {
-      return { success: false, error: "Produit introuvable." };
+      return { success: false, error: 'Produit introuvable.' };
+    }
+
+    if (
+      role === 'LEADER' &&
+      existing.leaderId !== user.id &&
+      existing.stockisteId !== user.id
+    ) {
+      return {
+        success: false,
+        error: 'Vous ne pouvez supprimer que vos propres produits.',
+      };
+    }
+
+    if (role === 'STOCKISTE' && existing.stockisteId !== user.id) {
+      return {
+        success: false,
+        error: 'Vous ne pouvez supprimer que vos propres produits.',
+      };
     }
 
     const salesCount = await prisma.sale.count({
@@ -507,22 +647,22 @@ export async function deleteProductAction(productId: string) {
       await tx.auditLog.create({
         data: {
           userId: user.id,
-          action: "DELETE_PRODUCT",
-          entity: "product",
+          action: 'DELETE_PRODUCT',
+          entity: 'product',
           entityId: productId,
           details: `Suppression définitive du produit ${existing.name} (SKU: ${existing.sku}) par ${user.name} (${role})`,
         },
       });
     });
 
-    revalidatePath("/products");
-    revalidatePath("/");
+    revalidatePath('/products');
+    revalidatePath('/');
     return {
       success: true,
       message: `Le produit "${existing.name}" a été supprimé avec succès.`,
     };
   } catch (error: any) {
-    console.error("Error deleting product:", error);
+    console.error('Error deleting product:', error);
     return { success: false, error: error.message };
   }
 }
