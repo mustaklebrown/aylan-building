@@ -138,7 +138,7 @@ export function ProductsClientPage({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  
+
   // Modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -149,7 +149,7 @@ export function ProductsClientPage({
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  
+
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -224,6 +224,56 @@ export function ProductsClientPage({
     (isLeader && isLeaderOwnProduct(p)) ||
     (isStockiste && isStockisteOwnProduct(p));
 
+  const getStockisteLabel = (stockisteId?: string | null) => {
+    if (!stockisteId || stockisteId === "none") {
+      return "🏢 Stock Central (Direct Dig e-com)";
+    }
+    const s = stockistes.find((item) => item.id === stockisteId);
+    if (!s) return "🏢 Stock Central (Direct Dig e-com)";
+    const prefix = s.role === "LEADER" ? "👑 [Leader]" : "📦 [Stockiste]";
+    return `${prefix} ${s.name || s.email}`;
+  };
+
+  const getProductLabel = (productId?: string | null) => {
+    if (!productId) return "Choisir un produit";
+    const p = products.find((item) => item.id === productId);
+    if (!p) return "Choisir un produit";
+    return `${p.name} (${p.sku}) • Stock : ${p.stockAvailable}`;
+  };
+
+  const getProductStockisteBadge = (p: Product) => {
+    const assignedStockiste = stockistes.find((s) => s.id === p.stockisteId || s.id === p.leaderId);
+    const leaderName =
+      p.leaderName ||
+      (assignedStockiste?.role === "LEADER" ? assignedStockiste.name || assignedStockiste.email : null) ||
+      (p.leaderId === currentUser.id ? currentUser.name : null);
+    const stockisteName =
+      p.stockisteName ||
+      (assignedStockiste ? assignedStockiste.name || assignedStockiste.email : null);
+
+    if (p.leaderId && (p.leaderId === p.stockisteId || isLeader)) {
+      return (
+        <Badge variant="outline" className="bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20 text-[10px] font-bold">
+          👑 {leaderName || stockisteName || "Leader"}
+        </Badge>
+      );
+    }
+
+    if (stockisteName) {
+      return (
+        <Badge variant="outline" className="bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/20 text-[10px] font-bold">
+          📦 {stockisteName}
+        </Badge>
+      );
+    }
+
+    return (
+      <Badge variant="outline" className="text-slate-400 text-[10px]">
+        Dig e-com
+      </Badge>
+    );
+  };
+
   const categories = ["all", ...Array.from(new Set(products.map((p) => p.category || "Autre")))];
 
   const filteredProducts = products.filter((p) => {
@@ -232,7 +282,7 @@ export function ProductsClientPage({
       p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (p.stockisteName && p.stockisteName.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (p.leaderName && p.leaderName.toLowerCase().includes(searchTerm.toLowerCase()));
-    
+
     const matchesCat = selectedCategory === "all" || p.category === selectedCategory;
     const matchesStatus =
       statusFilter === "all" ||
@@ -291,14 +341,14 @@ export function ProductsClientPage({
           stockisteName: isStockiste
             ? currentUser.name
             : assignedStockiste
-            ? assignedStockiste.name || assignedStockiste.email
-            : null,
+              ? assignedStockiste.name || assignedStockiste.email
+              : null,
           leaderId: res.product.leaderId,
           leaderName: isLeader
             ? currentUser.name
             : assignedStockiste?.role === "LEADER"
-            ? assignedStockiste.name || assignedStockiste.email
-            : null,
+              ? assignedStockiste.name || assignedStockiste.email
+              : null,
           allowAllEcommercants: res.product.allowAllEcommercants,
           allowAllLeaders: res.product.allowAllLeaders,
           recentMovements: addForm.stockAvailable > 0 ? [{
@@ -391,19 +441,19 @@ export function ProductsClientPage({
               const updatedStockisteName = assignedStockiste
                 ? assignedStockiste.name || assignedStockiste.email
                 : res.product.stockisteId === currentUser.id
-                ? currentUser.name
-                : res.product.stockisteId
-                ? p.stockisteName
-                : null;
+                  ? currentUser.name
+                  : res.product.stockisteId
+                    ? p.stockisteName
+                    : null;
 
               const updatedLeaderName =
                 assignedStockiste?.role === "LEADER"
                   ? assignedStockiste.name || assignedStockiste.email
                   : res.product.leaderId === currentUser.id
-                  ? currentUser.name
-                  : res.product.leaderId
-                  ? p.leaderName
-                  : null;
+                    ? currentUser.name
+                    : res.product.leaderId
+                      ? p.leaderName
+                      : null;
 
               return {
                 ...p,
@@ -566,49 +616,49 @@ export function ProductsClientPage({
   const handleExport = () => {
     const headers = isAgent || isEcommercant
       ? [
-          "Nom du Produit",
-          "SKU",
-          "Catégorie",
-          "Prix de Vente (KMF)",
-          "Ma Commission (KMF)",
-          "Stock Disponible",
-        ]
+        "Nom du Produit",
+        "SKU",
+        "Catégorie",
+        "Prix de Vente (KMF)",
+        "Ma Commission (KMF)",
+        "Stock Disponible",
+      ]
       : [
-          "Nom du Produit",
-          "SKU",
-          "Catégorie",
-          "Stockiste",
-          "Prix d'Achat (KMF)",
-          "Prix de Vente (KMF)",
-          "Commission Téléconseiller (KMF)",
-          "Commission E-commerçant (KMF)",
-          "Commission Leader (KMF)",
-          "Stock Disponible",
-          "Statut",
-        ];
+        "Nom du Produit",
+        "SKU",
+        "Catégorie",
+        "Stockiste",
+        "Prix d'Achat (KMF)",
+        "Prix de Vente (KMF)",
+        "Commission Téléconseiller (KMF)",
+        "Commission E-commerçant (KMF)",
+        "Commission Leader (KMF)",
+        "Stock Disponible",
+        "Statut",
+      ];
 
     const mapRow = (p: Product) => isAgent || isEcommercant
       ? [
-          p.name,
-          p.sku,
-          p.category,
-          p.salePrice,
-          isEcommercant ? p.ecommercantCommission : p.agentCommission,
-          p.stockAvailable,
-        ]
+        p.name,
+        p.sku,
+        p.category,
+        p.salePrice,
+        isEcommercant ? p.ecommercantCommission : p.agentCommission,
+        p.stockAvailable,
+      ]
       : [
-          p.name,
-          p.sku,
-          p.category,
-          p.stockisteName || "Direct Dig e-com",
-          p.purchasePrice,
-          p.salePrice,
-          p.agentCommission,
-          p.ecommercantCommission,
-          p.leaderCommission,
-          p.stockAvailable,
-          p.isActive ? "ACTIF" : "DÉSACTIVÉ",
-        ];
+        p.name,
+        p.sku,
+        p.category,
+        p.stockisteName || "Direct Dig e-com",
+        p.purchasePrice,
+        p.salePrice,
+        p.agentCommission,
+        p.ecommercantCommission,
+        p.leaderCommission,
+        p.stockAvailable,
+        p.isActive ? "ACTIF" : "DÉSACTIVÉ",
+      ];
 
     exportToCSV(filteredProducts, headers, mapRow, "produits_digecom");
   };
@@ -625,10 +675,10 @@ export function ProductsClientPage({
             {isStockiste
               ? "Gérez vos produits, approvisionnez les stocks et configurez les commissions vendeurs."
               : isEcommercant
-              ? "Consultez les produits mis à disposition par les stockistes avec vos commissions directes."
-              : isAgent
-              ? "Consultez les fiches produits, les prix de vente et les commissions de votre équipe."
-              : "Gestion complète du catalogue, des stockistes et des affectations vendeurs."}
+                ? "Consultez les produits mis à disposition par les stockistes avec vos commissions directes."
+                : isAgent
+                  ? "Consultez les fiches produits, les prix de vente et les commissions de votre équipe."
+                  : "Gestion complète du catalogue, des stockistes et des affectations vendeurs."}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -808,19 +858,7 @@ export function ProductsClientPage({
                         </div>
                       </TableCell>
                       <TableCell className="font-mono text-xs text-slate-500">#{p.sku}</TableCell>
-                      <TableCell>
-                        {p.leaderId && (p.leaderId === p.stockisteId || isLeader) ? (
-                          <Badge variant="outline" className="bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20 text-[10px] font-bold">
-                            👑 {p.leaderName || p.stockisteName || (p.leaderId === currentUser.id ? currentUser.name : "Leader")}
-                          </Badge>
-                        ) : p.stockisteName ? (
-                          <Badge variant="outline" className="bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/20 text-[10px] font-bold">
-                            📦 {p.stockisteName}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-slate-400 text-[10px]">Dig e-com</Badge>
-                        )}
-                      </TableCell>
+                      <TableCell>{getProductStockisteBadge(p)}</TableCell>
                       {!isAgent && !isEcommercant && (
                         <TableCell className="text-right font-medium text-slate-500 text-xs">
                           {formatCurrency(p.purchasePrice)}
@@ -1074,8 +1112,10 @@ export function ProductsClientPage({
                   value={addForm.stockisteId || "none"}
                   onValueChange={(val) => setAddForm({ ...addForm, stockisteId: !val || val === "none" ? "" : val })}
                 >
-                  <SelectTrigger id="stockisteId" className="border-slate-200">
-                    <SelectValue placeholder="Sélectionner un stockiste ou un leader" />
+                  <SelectTrigger id="stockisteId" className="border-slate-200 w-full">
+                    <SelectValue placeholder="Sélectionner un stockiste ou un leader">
+                      {(val) => getStockisteLabel(val)}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">🏢 Stock Central (Direct Dig e-com)</SelectItem>
@@ -1242,8 +1282,10 @@ export function ProductsClientPage({
                   value={editForm.stockisteId || "none"}
                   onValueChange={(val) => setEditForm({ ...editForm, stockisteId: !val || val === "none" ? "none" : val })}
                 >
-                  <SelectTrigger id="edit-stockisteId" className="border-slate-200">
-                    <SelectValue placeholder="Sélectionner un stockiste ou un leader" />
+                  <SelectTrigger id="edit-stockisteId" className="border-slate-200 w-full">
+                    <SelectValue placeholder="Sélectionner un stockiste ou un leader">
+                      {(val) => getStockisteLabel(val)}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">🏢 Stock Central (Direct Dig e-com)</SelectItem>
@@ -1303,8 +1345,10 @@ export function ProductsClientPage({
                   }
                 }}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Choisir un produit" />
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Choisir un produit">
+                    {(val) => getProductLabel(val)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {products.map((p) => (
