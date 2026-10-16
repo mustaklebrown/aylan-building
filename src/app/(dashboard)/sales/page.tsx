@@ -22,52 +22,49 @@ export default async function SalesPage() {
   const user = session.user;
   const role = user.role || "AGENT";
 
-  // Fetch sales list
-  const res = await getSalesAction();
+  // Fetch sales, active products, agents, and prospects in parallel
+  const [res, products, agents, prospects] = await Promise.all([
+    getSalesAction(),
+    prisma.product.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        salePrice: true,
+        stockAvailable: true,
+        agentCommission: true,
+        ecommercantCommission: true,
+        leaderCommission: true,
+      },
+    }),
+    prisma.user.findMany({
+      where: { role: { in: ["AGENT", "ECOMMERCANT", "LEADER"] } },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        role: true,
+      },
+    }),
+    prisma.prospect.findMany({
+      where: {
+        status: { notIn: ["CLIENT", "LOST", "CONFIRMED"] },
+        ...(role === "AGENT" ? { agentId: user.id } : {}),
+      },
+      orderBy: { fullName: "asc" },
+      select: {
+        id: true,
+        fullName: true,
+        phone: true,
+        agentId: true,
+      },
+    }),
+  ]);
 
   if (!res.success || !res.sales) {
     throw new Error(res.error || "Erreur lors de la récupération des ventes.");
   }
-
-  // Fetch active products list for the registration dropdown
-  const products = await prisma.product.findMany({
-    orderBy: { name: "asc" },
-    select: {
-      id: true,
-      name: true,
-      salePrice: true,
-      stockAvailable: true,
-      agentCommission: true,
-      ecommercantCommission: true,
-      leaderCommission: true,
-    },
-  });
-
-  // Fetch active agents list for registration assignment (only Admin/Accountant use this)
-  const agents = await prisma.user.findMany({
-    where: { role: { in: ["AGENT", "ECOMMERCANT", "LEADER"] } },
-    orderBy: { name: "asc" },
-    select: {
-      id: true,
-      name: true,
-      role: true,
-    },
-  });
-
-  // Fetch prospects (to link sales to prospects for conversion rate)
-  const prospects = await prisma.prospect.findMany({
-    where: {
-      status: { notIn: ["CLIENT", "LOST", "CONFIRMED"] },
-      ...(role === "AGENT" ? { agentId: user.id } : {}),
-    },
-    orderBy: { fullName: "asc" },
-    select: {
-      id: true,
-      fullName: true,
-      phone: true,
-      agentId: true,
-    },
-  });
 
   const currentUser = {
     id: user.id,

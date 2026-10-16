@@ -64,6 +64,7 @@ export async function getAgentsAction(roleFilter?: string) {
           },
         },
         sales: {
+          where: { status: { not: "CANCELLED" } },
           select: {
             price: true,
             quantity: true,
@@ -85,7 +86,7 @@ export async function getAgentsAction(roleFilter?: string) {
 
     const formattedAgents = agents.map((agent) => {
       const prospectsCount = agent._count.prospects;
-      const salesCount = agent._count.sales;
+      const salesCount = agent.sales.length;
       const totalCommissions = agent.commissions.reduce(
         (sum, item) => sum + item.amount,
         0
@@ -186,80 +187,106 @@ export async function getAgentDetailAction(agentId: string) {
       return { success: false, error: "Utilisateur non trouvé" };
     }
 
-    const totalProspects = await prisma.prospect.count({ where: { agentId } });
-    const contactedProspects = await prisma.prospect.count({
-      where: {
-        agentId,
-        status: { not: "NEW" },
-      },
-    });
-    const clientsCount = await prisma.prospect.count({
-      where: {
-        agentId,
-        status: { in: ["CLIENT", "CONFIRMED"] },
-      },
-    });
-    const totalSales = await prisma.sale.count({ where: { agentId } });
+    // Start of 6 months ago window
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+    const startRange = new Date(sixMonthsAgo.getFullYear(), sixMonthsAgo.getMonth(), 1);
 
-    const salesForRevenue = await prisma.sale.findMany({
-      where: { agentId },
-      select: { price: true, quantity: true },
-    });
+    const [
+      totalProspects,
+      contactedProspects,
+      clientsCount,
+      totalSales,
+      salesForRevenue,
+      commissionResult,
+      pastSales,
+      pastCommissions,
+    ] = await Promise.all([
+      prisma.prospect.count({ where: { agentId } }),
+      prisma.prospect.count({
+        where: {
+          agentId,
+          status: { not: "NEW" },
+        },
+      }),
+      prisma.prospect.count({
+        where: {
+          agentId,
+          status: { in: ["CLIENT", "CONFIRMED"] },
+        },
+      }),
+      prisma.sale.count({
+        where: {
+          agentId,
+          status: { not: "CANCELLED" },
+        },
+      }),
+      prisma.sale.findMany({
+        where: {
+          agentId,
+          status: { not: "CANCELLED" },
+        },
+        select: { price: true, quantity: true },
+      }),
+      prisma.commission.aggregate({
+        where: { agentId },
+        _sum: {
+          amount: true,
+        },
+      }),
+      prisma.sale.findMany({
+        where: {
+          agentId,
+          status: { not: "CANCELLED" },
+          date: { gte: startRange },
+        },
+        select: { date: true, price: true, quantity: true },
+      }),
+      prisma.commission.findMany({
+        where: {
+          agentId,
+          date: { gte: startRange },
+        },
+        select: { date: true, amount: true },
+      }),
+    ]);
+
     const totalRevenue = salesForRevenue.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
     );
-
-    const commissionResult = await prisma.commission.aggregate({
-      where: { agentId },
-      _sum: {
-        amount: true,
-      },
-    });
     const totalCommission = commissionResult._sum.amount || 0;
 
     const conversionRate =
       totalProspects > 0 ? (clientsCount / totalProspects) * 100 : 0;
 
-    // Monthly data for past 6 months
+    // Monthly data for past 6 months (computed in-memory)
     const monthlyStats = [];
     const months = ["Janv.", "Févr.", "Mars", "Avril", "Mai", "Juin", "Juil.", "Août", "Sept.", "Oct.", "Nov.", "Déc."];
-    
+
     for (let i = 5; i >= 0; i--) {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
       const year = d.getFullYear();
       const monthIndex = d.getMonth();
-      
+
       const startOfMonth = new Date(year, monthIndex, 1);
       const endOfMonth = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
 
-      const monthlySalesList = await prisma.sale.findMany({
-        where: {
-          agentId,
-          date: {
-            gte: startOfMonth,
-            lte: endOfMonth,
-          },
-        },
-        select: { price: true, quantity: true },
+      const mSales = pastSales.filter((s) => {
+        const sDate = new Date(s.date);
+        return sDate >= startOfMonth && sDate <= endOfMonth;
       });
-      const mRevenue = monthlySalesList.reduce(
+      const mRevenue = mSales.reduce(
         (sum, item) => sum + item.price * item.quantity,
         0
       );
 
-      const mCommResult = await prisma.commission.aggregate({
-        where: {
-          agentId,
-          date: {
-            gte: startOfMonth,
-            lte: endOfMonth,
-          },
-        },
-        _sum: { amount: true },
+      const mComms = pastCommissions.filter((c) => {
+        const cDate = new Date(c.date);
+        return cDate >= startOfMonth && cDate <= endOfMonth;
       });
-      const mCommissions = mCommResult._sum.amount || 0;
+      const mCommissions = mComms.reduce((sum, item) => sum + item.amount, 0);
 
       monthlyStats.push({
         name: months[monthIndex],

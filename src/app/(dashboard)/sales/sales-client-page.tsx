@@ -48,11 +48,14 @@ import {
   MoreVertical,
   Download,
   FileText,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   createSaleAction,
   updateDeliveryStatusAction,
+  deleteSaleAction,
 } from "@/server/actions/sale-actions";
 import { Timeframe, filterByTimeframe } from "@/lib/date-utils";
 import { formatCurrency, formatDate } from "@/lib/format-utils";
@@ -151,6 +154,36 @@ export function SalesClientPage({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [updatingSaleId, setUpdatingSaleId] = useState<string | null>(null);
   const [activeInvoice, setActiveInvoice] = useState<Sale | null>(null);
+  const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const canDeleteSale = (s: Sale) => {
+    const role = currentUser.role;
+    if (role === "ADMIN" || role === "ACCOUNTANT") return true;
+    if (s.agentId === currentUser.id && s.status !== "DELIVERED") return true;
+    if (role === "STOCKISTE" && s.stockisteId === currentUser.id) return true;
+    if (role === "LEADER" && s.leaderId === currentUser.id && s.status !== "DELIVERED") return true;
+    return false;
+  };
+
+  const handleDeleteSale = async () => {
+    if (!saleToDelete) return;
+    setIsDeleting(true);
+    try {
+      const res = await deleteSaleAction(saleToDelete.id);
+      if (res.success) {
+        toast.success(res.message || "Vente supprimée avec succès et stock recrédité !");
+        setSales((prev) => prev.filter((item) => item.id !== saleToDelete.id));
+        setSaleToDelete(null);
+      } else {
+        toast.error(res.error || "Erreur lors de la suppression de la vente.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de la suppression.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Form states
   const [addForm, setAddForm] = useState({
@@ -515,7 +548,7 @@ export function SalesClientPage({
                   <TableHead>Vendeur</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead className="text-right">Commissions</TableHead>
-                  <TableHead className="text-right">Facture</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -615,15 +648,29 @@ export function SalesClientPage({
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setActiveInvoice(s)}
-                          className="h-7 text-xs font-semibold gap-1 border-indigo-200 text-indigo-600 dark:border-indigo-800 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50"
-                        >
-                          <FileText className="h-3 w-3" />
-                          <span>Facture</span>
-                        </Button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setActiveInvoice(s)}
+                            className="h-7 text-xs font-semibold gap-1 border-indigo-200 text-indigo-600 dark:border-indigo-800 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50"
+                          >
+                            <FileText className="h-3 w-3" />
+                            <span className="hidden sm:inline">Facture</span>
+                          </Button>
+                          {canDeleteSale(s) && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setSaleToDelete(s)}
+                              className="h-7 text-xs font-semibold gap-1 border-rose-200 text-rose-600 dark:border-rose-900/50 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 hover:text-rose-700"
+                              title="Supprimer la vente en cas d'erreur"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                              <span className="hidden sm:inline">Supprimer</span>
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -640,6 +687,81 @@ export function SalesClientPage({
         onClose={() => setActiveInvoice(null)}
         invoice={activeInvoice}
       />
+
+      {/* Delete Sale Confirmation Dialog */}
+      <Dialog open={saleToDelete !== null} onOpenChange={(open) => !open && setSaleToDelete(null)}>
+        <DialogContent className="sm:max-w-[460px] p-6 rounded-2xl">
+          <DialogHeader className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-rose-100 dark:bg-rose-950/50 flex items-center justify-center text-rose-600 dark:text-rose-400">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">
+                  Supprimer la vente (erreur)
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500">
+                  Cette action annulera définitivement la transaction.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {saleToDelete && (
+            <div className="space-y-3 py-3 text-xs border-y border-slate-100 dark:border-slate-800 my-2">
+              <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg space-y-1.5 border border-slate-100 dark:border-slate-800">
+                <div className="flex justify-between font-semibold text-slate-700 dark:text-slate-300">
+                  <span>Client :</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{saleToDelete.customerName}</span>
+                </div>
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                  <span>Produit :</span>
+                  <span className="font-medium text-slate-900 dark:text-white">{saleToDelete.productName} ({saleToDelete.quantity}x)</span>
+                </div>
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                  <span>Montant Total :</span>
+                  <span className="font-bold text-indigo-600 dark:text-indigo-400">{formatCurrency(saleToDelete.totalAmount)}</span>
+                </div>
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                  <span>Vendeur :</span>
+                  <span>{saleToDelete.agentName}</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40 rounded-lg text-amber-800 dark:text-amber-300 space-y-1">
+                <p className="font-bold flex items-center gap-1.5">
+                  <span>📦 Restitution automatique :</span>
+                </p>
+                <p className="text-[11px] leading-relaxed">
+                  Le stock du produit sera automatiquement recrédité de <strong className="font-bold">{saleToDelete.quantity} unité(s)</strong>. Les commissions associées non réglées seront définitivement annulées.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0 mt-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isDeleting}
+              onClick={() => setSaleToDelete(null)}
+              className="text-xs h-9"
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={handleDeleteSale}
+              className="text-xs h-9 bg-rose-600 hover:bg-rose-700 text-white font-bold gap-1.5"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>{isDeleting ? "Suppression en cours..." : "Confirmer la suppression"}</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Sale Modal */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>

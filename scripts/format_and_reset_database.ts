@@ -77,6 +77,31 @@ async function resetAndFormatDatabase() {
         name: 'Livreur Moroni',
         role: 'DELIVERY',
       },
+      // Stockistes réels
+      { email: 'ismat@digecom.com', name: 'Mme Ismat', role: 'STOCKISTE' },
+      { email: 'dalilou@digecom.com', name: 'M. Dalilou', role: 'STOCKISTE' },
+      { email: 'bousri@digecom.com', name: 'M. Bousri', role: 'STOCKISTE' },
+      // 20 E-commerçants Dig e-com
+      { email: 'hachemi@digecom.com', name: 'Hachemi Ben Abd Hsn', role: 'ECOMMERCANT', password: 'Hachemi@2026' },
+      { email: 'zaym@digecom.com', name: 'ZAYM', role: 'ECOMMERCANT', password: 'Zaym@2026' },
+      { email: 'mufti@digecom.com', name: 'mufti', role: 'ECOMMERCANT', password: 'Mufti@2026' },
+      { email: 'beniman@digecom.com', name: 'Ben iman', role: 'ECOMMERCANT', password: 'Beniman@2026' },
+      { email: 'anicha@digecom.com', name: 'Anicha', role: 'ECOMMERCANT', password: 'Anicha@2026' },
+      { email: 'nailati@digecom.com', name: 'Nailati', role: 'ECOMMERCANT', password: 'Nailati@2026' },
+      { email: 'natacha@digecom.com', name: 'Natacha', role: 'ECOMMERCANT', password: 'Natacha@2026' },
+      { email: 'naira@digecom.com', name: 'Naira', role: 'ECOMMERCANT', password: 'Naira@2026' },
+      { email: 'niati@digecom.com', name: 'Niati', role: 'ECOMMERCANT', password: 'Niati@2026' },
+      { email: 'nadhra@digecom.com', name: 'Nadhra', role: 'ECOMMERCANT', password: 'Nadhra@2026' },
+      { email: 'tanzilou@digecom.com', name: 'Tanzilou', role: 'ECOMMERCANT', password: 'Tanzilou@2026' },
+      { email: 'taadhuma@digecom.com', name: 'Taadhuma', role: 'ECOMMERCANT', password: 'Taadhuma@2026' },
+      { email: 'thamarati@digecom.com', name: 'Thamarati', role: 'ECOMMERCANT', password: 'Thamarati@2026' },
+      { email: 'hachmia@digecom.com', name: 'Hachmia', role: 'ECOMMERCANT', password: 'Hachmia@2026' },
+      { email: 'ichati@digecom.com', name: 'ichati', role: 'ECOMMERCANT', password: 'Ichati@2026' },
+      { email: 'loutfa@digecom.com', name: 'Loutfa', role: 'ECOMMERCANT', password: 'Loutfa@2026' },
+      { email: 'zamzam@digecom.com', name: 'Zamzam', role: 'ECOMMERCANT', password: 'Zamzam@2026' },
+      { email: 'zamzam2@digecom.com', name: 'Zamzam2', role: 'ECOMMERCANT', password: 'Zamzam2@2026' },
+      { email: 'aicha@digecom.com', name: 'Aïcha', role: 'ECOMMERCANT', password: 'Aicha@2026' },
+      { email: 'chamsia@digecom.com', name: 'chamsia', role: 'ECOMMERCANT', password: 'Chamsia@2026' },
     ];
 
     const principalEmails = principalUsers.map((u) => u.email.toLowerCase());
@@ -128,7 +153,7 @@ async function resetAndFormatDatabase() {
           const res = await auth.api.signUpEmail({
             body: {
               email: u.email,
-              password: 'password123',
+              password: (u as any).password || 'password123',
               name: u.name,
             },
           });

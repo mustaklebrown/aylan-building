@@ -12,6 +12,9 @@ export async function seedTestAccountsAction() {
     { email: "agent@digecom.com", name: "Commercial Dig", role: "AGENT" },
     { email: "livreur@digecom.com", name: "Assistant Livraison", role: "DELIVERY_ASSISTANT" },
     { email: "driver@digecom.com", name: "Livreur Principal", role: "DELIVERY" },
+    { email: "ismat@digecom.com", name: "Mlle Ismat", role: "STOCKISTE" },
+    { email: "dalilou@digecom.com", name: "M. Dalilou", role: "STOCKISTE" },
+    { email: "bousri@digecom.com", name: "M. Bousri", role: "STOCKISTE" },
     // Legacy support
     { email: "admin@aylangroup.com", name: "Directeur Admin", role: "ADMIN" },
     { email: "accountant@aylangroup.com", name: "Comptable", role: "ACCOUNTANT" },

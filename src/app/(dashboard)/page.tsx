@@ -63,85 +63,81 @@ export default async function DashboardPage() {
     productsFilter = { isActive: true };
   }
 
-  // Fetch sales
-  const sales = await prisma.sale.findMany({
-    where: salesFilter,
-    orderBy: { date: "desc" },
-    include: {
-      product: { select: { id: true, name: true, sku: true } },
-      agent: { select: { id: true, name: true, email: true, role: true } },
-      stockiste: { select: { id: true, name: true } },
-      leader: { select: { id: true, name: true } },
-    },
-  });
+  const agentWhere: any =
+    !isAgent && !isEcommercant
+      ? isLeader
+        ? { role: "AGENT", leaderId: user.id }
+        : isStockiste
+        ? { role: { in: ["AGENT", "ECOMMERCANT", "LEADER"] } }
+        : { role: { in: ["AGENT", "ECOMMERCANT", "LEADER", "STOCKISTE"] } }
+      : null;
 
-  // Fetch prospects
-  const prospects = await prisma.prospect.findMany({
-    where: prospectsFilter,
-    orderBy: { createdAt: "desc" },
-    include: {
-      agent: { select: { id: true, name: true, email: true } },
-    },
-  });
-
-  // Fetch commissions
-  const commissions = await prisma.commission.findMany({
-    where: commissionsFilter,
-    orderBy: { date: "desc" },
-    include: {
-      sale: {
-        select: {
-          customerName: true,
-          quantity: true,
-          price: true,
-          sellerRole: true,
-          product: { select: { name: true } },
-        },
+  // Fetch sales, prospects, commissions, agents, and products in parallel
+  const [sales, prospects, commissions, agents, products] = await Promise.all([
+    prisma.sale.findMany({
+      where: salesFilter,
+      orderBy: { date: "desc" },
+      include: {
+        product: { select: { id: true, name: true, sku: true } },
+        agent: { select: { id: true, name: true, email: true, role: true } },
+        stockiste: { select: { id: true, name: true } },
+        leader: { select: { id: true, name: true } },
       },
-      agent: { select: { id: true, name: true, email: true, role: true } },
-    },
-  });
-
-  // Fetch agents / sellers (if ADMIN, ACCOUNTANT, LEADER, or STOCKISTE)
-  let agents: any[] = [];
-  if (!isAgent && !isEcommercant) {
-    const agentWhere: any = isLeader
-      ? { role: "AGENT", leaderId: user.id }
-      : isStockiste
-      ? { role: { in: ["AGENT", "ECOMMERCANT", "LEADER"] } }
-      : { role: { in: ["AGENT", "ECOMMERCANT", "LEADER", "STOCKISTE"] } };
-
-    agents = await prisma.user.findMany({
-      where: agentWhere,
+    }),
+    prisma.prospect.findMany({
+      where: prospectsFilter,
+      orderBy: { createdAt: "desc" },
+      include: {
+        agent: { select: { id: true, name: true, email: true } },
+      },
+    }),
+    prisma.commission.findMany({
+      where: commissionsFilter,
+      orderBy: { date: "desc" },
+      include: {
+        sale: {
+          select: {
+            customerName: true,
+            quantity: true,
+            price: true,
+            sellerRole: true,
+            product: { select: { name: true } },
+          },
+        },
+        agent: { select: { id: true, name: true, email: true, role: true } },
+      },
+    }),
+    agentWhere
+      ? prisma.user.findMany({
+          where: agentWhere,
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            createdAt: true,
+          },
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve([]),
+    prisma.product.findMany({
+      where: productsFilter,
       select: {
         id: true,
         name: true,
-        email: true,
-        role: true,
-        createdAt: true,
+        sku: true,
+        stockAvailable: true,
+        alertThreshold: true,
+        purchasePrice: true,
+        salePrice: true,
+        agentCommission: true,
+        ecommercantCommission: true,
+        leaderCommission: true,
+        isActive: true,
+        stockisteId: true,
       },
-      orderBy: { name: "asc" },
-    });
-  }
-
-  // Fetch products
-  const products = await prisma.product.findMany({
-    where: productsFilter,
-    select: {
-      id: true,
-      name: true,
-      sku: true,
-      stockAvailable: true,
-      alertThreshold: true,
-      purchasePrice: true,
-      salePrice: true,
-      agentCommission: true,
-      ecommercantCommission: true,
-      leaderCommission: true,
-      isActive: true,
-      stockisteId: true,
-    },
-  });
+    }),
+  ]);
 
   const currentUser = {
     id: user.id,

@@ -218,18 +218,41 @@ export async function createSaleAction(data: {
       const totalSaleGross = salePrice * quantity;
 
       // 4. Calculate Commissions & Stockiste Revenue
+      // Check if seller has specific product assignment with custom commission rates
+      const assignment = await tx.productAssignment.findUnique({
+        where: {
+          productId_userId: {
+            productId: product.id,
+            userId: seller.id,
+          },
+        },
+        select: {
+          allowed: true,
+          customAgentCommission: true,
+          customEcommercantCommission: true,
+        },
+      });
+
+      if (assignment && !assignment.allowed) {
+        throw new Error("Ce vendeur n'est pas autorisé à vendre ce produit.");
+      }
+
       let sellerCommission = 0;
       let leaderCommission = 0;
       let leaderId: string | null = null;
 
       if (sellerRole === 'ECOMMERCANT') {
-        // Independent E-commerçant: no leader, higher commission
-        sellerCommission = (product.ecommercantCommission || 0) * quantity;
+        // Independent E-commerçant: no leader, higher commission (custom rate or product default)
+        const unitCommission =
+          assignment?.customEcommercantCommission ?? product.ecommercantCommission ?? 0;
+        sellerCommission = Math.max(0, unitCommission * quantity);
         leaderCommission = 0;
         leaderId = null;
       } else {
-        // Téléconseiller: attached to leader
-        sellerCommission = (product.agentCommission || 0) * quantity;
+        // Téléconseiller: attached to leader (custom rate or product default)
+        const unitCommission =
+          assignment?.customAgentCommission ?? product.agentCommission ?? 0;
+        sellerCommission = Math.max(0, unitCommission * quantity);
         if (seller.leaderId) {
           const leaderExists = await tx.user.findUnique({
             where: { id: seller.leaderId },
@@ -237,7 +260,7 @@ export async function createSaleAction(data: {
           });
           if (leaderExists) {
             leaderId = seller.leaderId;
-            leaderCommission = (product.leaderCommission || 0) * quantity;
+            leaderCommission = Math.max(0, (product.leaderCommission || 0) * quantity);
           }
         }
       }
@@ -879,3 +902,145 @@ export async function getAvailableDeliveriesAction() {
     return { success: false, error: error.message, sales: [] };
   }
 }
+
+export async function deleteSaleAction(saleId: string) {
+  const user = await checkAuth();
+  const role = user.role || 'AGENT';
+
+  try {
+    const sale = await prisma.sale.findUnique({
+      where: { id: saleId },
+      include: {
+        product: true,
+        commissions: true,
+        agent: true,
+      },
+    });
+
+    if (!sale) {
+      return { success: false, error: 'Vente non trouvée.' };
+    }
+
+    // Role-based authorization
+    const isAdminOrAccountant = role === 'ADMIN' || role === 'ACCOUNTANT';
+    const isOwnerSeller = sale.agentId === user.id;
+    const isProductStockiste = role === 'STOCKISTE' && sale.stockisteId === user.id;
+    const isTeamLeader =
+      role === 'LEADER' &&
+      (sale.leaderId === user.id || sale.agent?.leaderId === user.id);
+
+    if (
+      !isAdminOrAccountant &&
+      !isOwnerSeller &&
+      !isProductStockiste &&
+      !isTeamLeader
+    ) {
+      return {
+        success: false,
+        error: "Vous n'avez pas l'autorisation de supprimer cette vente.",
+      };
+    }
+
+    // Safety: Prevent deletion if any commission has already been paid out
+    const hasPaidCommissions = sale.commissions.some(
+      (c) => c.status === 'PAID',
+    );
+    if (hasPaidCommissions && role !== 'ADMIN') {
+      return {
+        success: false,
+        error:
+          'Impossible de supprimer cette vente car une ou plusieurs commissions ont déjà été réglées par la comptabilité.',
+      };
+    }
+
+    // Safety: Regular sellers cannot delete sales that are already delivered
+    if (
+      !isAdminOrAccountant &&
+      (sale.status === 'SHIPPED' || sale.status === 'DELIVERED')
+    ) {
+      return {
+        success: false,
+        error:
+          'Seul un administrateur peut supprimer une commande déjà expédiée ou livrée.',
+      };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // 1. If the sale was NOT cancelled, restore product stock
+      if (sale.status !== 'CANCELLED') {
+        await tx.product.update({
+          where: { id: sale.productId },
+          data: {
+            stockAvailable: {
+              increment: sale.quantity,
+            },
+          },
+        });
+
+        await tx.stockMovement.create({
+          data: {
+            productId: sale.productId,
+            type: 'OUT_RETURN',
+            quantity: sale.quantity,
+            cost: sale.product.purchasePrice,
+            supplier: `Suppression vente erronée N° ${sale.id} (stock recrédité: +${sale.quantity})`,
+          },
+        });
+      }
+
+      // 2. Free assigned driver if driver has no other active deliveries
+      if (sale.driverId) {
+        const otherDeliveries = await tx.sale.count({
+          where: {
+            driverId: sale.driverId,
+            id: { not: sale.id },
+            status: { in: ['CONFIRMED', 'SHIPPED'] },
+          },
+        });
+        if (otherDeliveries === 0) {
+          await tx.user.update({
+            where: { id: sale.driverId },
+            data: { isAvailable: true },
+          });
+        }
+      }
+
+      // 3. Delete commissions associated with this sale
+      await tx.commission.deleteMany({
+        where: { saleId: sale.id },
+      });
+
+      // 4. Delete the sale record
+      await tx.sale.delete({
+        where: { id: sale.id },
+      });
+
+      // 5. Audit log trace
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          action: 'DELETE_SALE',
+          entity: 'sale',
+          entityId: sale.id,
+          details: `Suppression de la vente erronée ${sale.id} (${sale.customerName} - ${sale.quantity}x ${sale.product.name}) par ${user.name} (${role}). Stock recrédité de ${sale.quantity} unités.`,
+        },
+      });
+    });
+
+    revalidatePath('/sales');
+    revalidatePath('/products');
+    revalidatePath('/commissions');
+    revalidatePath('/deliveries');
+    revalidatePath('/accounting');
+    revalidatePath('/');
+
+    return {
+      success: true,
+      message: `La vente de "${sale.customerName}" a été supprimée et ${sale.quantity} unité(s) ont été recréditées au stock.`,
+    };
+  } catch (error: any) {
+    console.error('Error deleting sale:', error);
+    return { success: false, error: error.message };
+  }
+}
+

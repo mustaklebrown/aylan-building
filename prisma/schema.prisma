@@ -48,6 +48,8 @@ model User {
   // Deliveries assigned when user is a driver
   assignedDeliveries Sale[] @relation("DriverToSales")
 
+  @@index([role])
+  @@index([leaderId])
   @@map("user")
 }
 
@@ -63,6 +65,7 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([token])
+  @@index([userId])
   @@map("session")
 }
 
@@ -82,6 +85,7 @@ model Account {
   createdAt             DateTime
   updatedAt             DateTime
 
+  @@index([userId])
   @@map("account")
 }
 
@@ -115,6 +119,10 @@ model Prospect {
   updatedAt         DateTime @updatedAt
 
   sales Sale[]
+
+  @@index([agentId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model Product {
@@ -150,6 +158,11 @@ model Product {
   assignments ProductAssignment[]
   movements   StockMovement[]
   sales       Sale[]
+
+  @@index([stockisteId])
+  @@index([leaderId])
+  @@index([isActive])
+  @@index([isCommon])
 }
 
 model ProductAssignment {
@@ -164,6 +177,8 @@ model ProductAssignment {
   createdAt DateTime @default(now())
 
   @@unique([productId, userId])
+  @@index([userId])
+  @@index([productId])
 }
 
 model StockMovement {
@@ -175,6 +190,9 @@ model StockMovement {
   cost      Float?
   supplier  String?
   date      DateTime @default(now())
+
+  @@index([productId])
+  @@index([date])
 }
 
 model Sale {
@@ -219,6 +237,15 @@ model Sale {
 
   user   User?   @relation("UserToSales", fields: [userId], references: [id])
   userId String?
+
+  @@index([agentId])
+  @@index([stockisteId])
+  @@index([leaderId])
+  @@index([driverId])
+  @@index([status])
+  @@index([date])
+  @@index([productId])
+  @@index([prospectId])
 }
 
 model Commission {
@@ -231,6 +258,11 @@ model Commission {
   amount    Float
   date      DateTime @default(now())
   status    String   @default("PENDING") // PENDING, PAID
+
+  @@index([saleId])
+  @@index([agentId])
+  @@index([status])
+  @@index([date])
 }
 
 model Notification {
@@ -241,6 +273,9 @@ model Notification {
   message   String
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([createdAt])
 }
 
 model AuditLog {
@@ -252,4 +287,8 @@ model AuditLog {
   entityId  String
   details   String?
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([entity, entityId])
 }
